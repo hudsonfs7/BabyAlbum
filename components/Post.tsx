@@ -10,6 +10,11 @@ import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import html2canvas from 'html2canvas';
 
+// Imports do Capacitor para Compartilhamento Nativo
+import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+
 interface PostProps {
   post: Post;
   currentUser: User;
@@ -96,7 +101,17 @@ export const PostCard: React.FC<PostProps> = ({ post, currentUser, isFriend }) =
     }
   };
 
-  // Lógica de Compartilhamento Premium
+  // Helper para converter Blob em Base64 (Necessário para o Filesystem do Capacitor)
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  // Lógica de Compartilhamento Híbrida (Web & Native)
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!storyRef.current || isSharing) return;
@@ -107,52 +122,85 @@ export const PostCard: React.FC<PostProps> = ({ post, currentUser, isFriend }) =
       await new Promise(resolve => setTimeout(resolve, 100));
 
       const canvas = await html2canvas(storyRef.current, {
-        scale: 2, // Equilíbrio entre qualidade e performance
+        scale: 2, 
         useCORS: true, 
         backgroundColor: null,
         logging: false,
         allowTaint: true
       });
 
-      canvas.toBlob(async (blob) => {
-        if (!blob) {
-            setIsSharing(false);
-            return;
-        }
+      // === MODO NATIVO (ANDROID/IOS APK) ===
+      if (Capacitor.isNativePlatform()) {
+         canvas.toBlob(async (blob) => {
+            if (!blob) throw new Error("Falha ao gerar imagem");
+            
+            try {
+              const base64Data = await blobToBase64(blob);
+              const fileName = `babyalbum-${post.id}.png`;
+              
+              // Grava o arquivo no cache do dispositivo
+              const savedFile = await Filesystem.writeFile({
+                path: fileName,
+                data: base64Data.split(',')[1], // Remove o header do base64
+                directory: Directory.Cache
+              });
 
-        const fileName = `babyalbum-${post.id}.png`;
-        const file = new File([blob], fileName, { type: 'image/png' });
+              // Compartilha o URI do arquivo
+              await Share.share({
+                title: 'Memória BabyAlbum',
+                text: `Olha que momento lindo do ${post.userName}!`,
+                url: savedFile.uri,
+                dialogTitle: 'Compartilhar Memória'
+              });
+            } catch (nativeError) {
+              console.error("Erro nativo:", nativeError);
+              alert("Erro ao abrir compartilhamento do celular.");
+            } finally {
+              setIsSharing(false);
+            }
+         }, 'image/png', 0.9);
 
-        // Verifica suporte a compartilhamento de arquivos
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({
-              files: [file],
-              title: 'Memória BabyAlbum',
-              text: `Olha que momento lindo do ${post.userName}!`
-            });
-          } catch (shareError) {
-             console.log("Compartilhamento cancelado ou falhou", shareError);
+      } else {
+        // === MODO WEB (NAVEGADOR) ===
+        canvas.toBlob(async (blob) => {
+          if (!blob) {
+              setIsSharing(false);
+              return;
           }
-        } else {
-          // Fallback para Download se o navegador não suportar compartilhamento de arquivos
-          try {
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          } catch (downloadError) {
-            alert("Não foi possível compartilhar a imagem automaticamente.");
+
+          const fileName = `babyalbum-${post.id}.png`;
+          const file = new File([blob], fileName, { type: 'image/png' });
+
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({
+                files: [file],
+                title: 'Memória BabyAlbum',
+                text: `Olha que momento lindo do ${post.userName}!`
+              });
+            } catch (shareError) {
+               console.log("Compartilhamento cancelado", shareError);
+            }
+          } else {
+            // Fallback: Download direto
+            try {
+              const link = document.createElement('a');
+              link.href = URL.createObjectURL(blob);
+              link.download = fileName;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            } catch (downloadError) {
+              alert("Seu navegador não suporta compartilhamento direto.");
+            }
           }
-        }
-        setIsSharing(false);
-      }, 'image/png', 0.9);
+          setIsSharing(false);
+        }, 'image/png', 0.9);
+      }
 
     } catch (error) {
-      console.error("Erro ao gerar imagem", error);
-      alert("Não foi possível gerar a imagem para compartilhar.");
+      console.error("Erro geral ao gerar imagem", error);
+      alert("Não foi possível gerar a imagem.");
       setIsSharing(false);
     }
   };
