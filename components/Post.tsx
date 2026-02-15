@@ -103,14 +103,15 @@ export const PostCard: React.FC<PostProps> = ({ post, currentUser, isFriend }) =
 
     setIsSharing(true);
     try {
-      // Pequeno delay para garantir renderização
+      // Pequeno delay para garantir renderização antes do print
       await new Promise(resolve => setTimeout(resolve, 100));
 
       const canvas = await html2canvas(storyRef.current, {
-        scale: 3, // Alta qualidade
-        useCORS: true, // Permitir imagens do Cloudinary
+        scale: 2, // Equilíbrio entre qualidade e performance
+        useCORS: true, 
         backgroundColor: null,
-        logging: false
+        logging: false,
+        allowTaint: true
       });
 
       canvas.toBlob(async (blob) => {
@@ -119,31 +120,39 @@ export const PostCard: React.FC<PostProps> = ({ post, currentUser, isFriend }) =
             return;
         }
 
-        const file = new File([blob], `babyalbum-memoria-${post.id}.png`, { type: 'image/png' });
+        const fileName = `babyalbum-${post.id}.png`;
+        const file = new File([blob], fileName, { type: 'image/png' });
 
-        if (navigator.share) {
+        // Verifica suporte a compartilhamento de arquivos
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
             await navigator.share({
               files: [file],
-              title: 'Uma memória especial',
+              title: 'Memória BabyAlbum',
               text: `Olha que momento lindo do ${post.userName}!`
             });
           } catch (shareError) {
-             // Usuário cancelou
+             console.log("Compartilhamento cancelado ou falhou", shareError);
           }
         } else {
-          // Fallback Download
-          const link = document.createElement('a');
-          link.href = URL.createObjectURL(blob);
-          link.download = `babyalbum-memoria-${post.id}.png`;
-          link.click();
+          // Fallback para Download se o navegador não suportar compartilhamento de arquivos
+          try {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } catch (downloadError) {
+            alert("Não foi possível compartilhar a imagem automaticamente.");
+          }
         }
         setIsSharing(false);
-      }, 'image/png');
+      }, 'image/png', 0.9);
 
     } catch (error) {
       console.error("Erro ao gerar imagem", error);
-      alert("Não foi possível compartilhar a imagem.");
+      alert("Não foi possível gerar a imagem para compartilhar.");
       setIsSharing(false);
     }
   };
@@ -390,9 +399,6 @@ export const PostCard: React.FC<PostProps> = ({ post, currentUser, isFriend }) =
 
       {/* 
         EXPANDED STORY MODAL with PORTAL
-        Movido para createPortal(..., document.body) para garantir que fique no topo da árvore DOM,
-        evitando problemas de z-index e stacking context causados por transforms nos pais.
-        Fundo totalmente opaco e z-index extremo.
       */}
       {isExpanded && !showDeleteModal && createPortal(
         <div 
@@ -423,8 +429,6 @@ export const PostCard: React.FC<PostProps> = ({ post, currentUser, isFriend }) =
           >
             {/* 
                THE CAPTURE CARD
-               Este elemento será capturado pelo html2canvas.
-               MODIFICADO: Padding reduzido ao máximo para maximizar a foto nas laterais.
             */}
             <div 
               ref={storyRef}
@@ -461,7 +465,7 @@ export const PostCard: React.FC<PostProps> = ({ post, currentUser, isFriend }) =
                 )}
               </div>
 
-              {/* Photo Frame (MODIFICADO: Moldura mínima e padding quase zero) */}
+              {/* Photo Frame */}
               <div className="bg-white p-0.5 rounded-[1rem] shadow-[0_8px_30px_rgba(0,0,0,0.08)] border-2 border-white transform rotate-0 mb-4 relative z-10">
                  <img 
                    src={post.photoUrl} 

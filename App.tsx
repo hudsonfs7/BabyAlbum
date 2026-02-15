@@ -59,6 +59,34 @@ const AppContent: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const { setGender } = useTheme();
 
+  // IMPLEMENTAÇÃO DE MODO IMERSIVO (Solicita Fullscreen na primeira interação)
+  useEffect(() => {
+    const enterFullScreen = async () => {
+      try {
+        if (!document.fullscreenElement) {
+          if (document.documentElement.requestFullscreen) {
+            await document.documentElement.requestFullscreen();
+          } else if ((document.documentElement as any).webkitRequestFullscreen) {
+            await (document.documentElement as any).webkitRequestFullscreen();
+          }
+        }
+      } catch (e) {
+        // Interação do usuário necessária ou não suportado
+        console.log("Aguardando interação para fullscreen");
+      }
+    };
+
+    // Tenta entrar em fullscreen no clique (padrão Android Chrome/WebView)
+    document.addEventListener('click', enterFullScreen, { once: true });
+    
+    // Tenta entrar imediatamente (funciona em alguns WebViews configurados)
+    enterFullScreen();
+
+    return () => {
+      document.removeEventListener('click', enterFullScreen);
+    };
+  }, []);
+
   useEffect(() => {
     const saved = localStorage.getItem('baby_user');
     if (saved) {
