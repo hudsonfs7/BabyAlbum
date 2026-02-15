@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, MapPin, X, Stars, Cloud, Loader2, Sparkles, BookOpen, Move, ZoomIn } from 'lucide-react';
+import { Camera, MapPin, Stars, Loader2, Sparkles, BookOpen, Move, ZoomIn } from 'lucide-react';
 import { useTheme } from '../themeContext';
 import { Button } from '../components/Button';
 import { H2, P } from '../components/Typography';
@@ -155,12 +155,15 @@ export const CreatePost: React.FC = () => {
               onPointerUp={handlePointerUp}
               onPointerLeave={handlePointerUp}
             >
-              <img 
-                src={photoPreview} 
-                alt="Preview" 
-                className="w-full h-full object-cover origin-center pointer-events-none select-none"
+              <div 
+                className="w-full h-full pointer-events-none select-none"
                 style={{
-                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`
+                  backgroundImage: `url(${photoPreview})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                  transformOrigin: 'center'
                 }}
               />
               
