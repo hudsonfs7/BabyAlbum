@@ -11,15 +11,16 @@
     "android:build": "npm run android:sync && npx cap build android"
   },
   "dependencies": {
-    "@capacitor/core": "^6.0.0",
-    "@capacitor/filesystem": "^6.0.4",
-    "@capacitor/share": "^6.0.4",
-    "firebase": "^11.3.1",
-    "html2canvas": "^1.4.1",
-    "lucide-react": "^0.471.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "^7.1.3"
+    "react-router-dom": "^7.1.3",
+    "lucide-react": "^0.471.0",
+    "firebase": "^11.3.1",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/share": "^6.0.0",
+    "@capacitor/filesystem": "^6.0.0",
+    "@capgo/capacitor-updater": "^6.0.0",
+    "html2canvas": "^1.4.1"
   },
   "devDependencies": {
     "@capacitor/android": "^6.0.0",

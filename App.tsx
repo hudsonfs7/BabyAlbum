@@ -9,6 +9,7 @@ import { Auth } from './views/Auth';
 import { Home, Plus, User as UserIcon } from 'lucide-react';
 import { VISUAL_STANDARDS } from './styles';
 import { User } from './types';
+import { OtaUpdater } from './components/OtaUpdater';
 
 const Navigation: React.FC = () => {
   const { colors } = useTheme();
@@ -117,6 +118,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div className={VISUAL_STANDARDS.container}>
+      <OtaUpdater />
       <Routes>
         <Route path="/" element={<Feed />} />
         <Route path="/create" element={<CreatePost />} />
