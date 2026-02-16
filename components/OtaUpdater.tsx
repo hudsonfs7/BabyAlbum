@@ -97,29 +97,16 @@ export const OtaUpdater: React.FC = () => {
       const current = await CapacitorUpdater.current();
       addLog('info', `Versão atual instalada: ${current.id}`);
 
-      const failedVersion = localStorage.getItem('ota_failed_version');
-      
-      if (current.id === data.version) {
-        if (failedVersion) localStorage.removeItem('ota_failed_version');
-        setStatus('idle');
-        return;
-      }
-
-      if (failedVersion === data.version) {
-        addLog('warn', `Versão ${data.version} marcada como falha. Bloqueando.`);
-        setVersionInfo({ version: data.version, note: "Versão instável" });
-        setStatus('blocked'); 
-        // Não reseta para idle automaticamente se estiver bloqueado para permitir debug
-        return;
-      }
+      // Lógica Simplificada: Se for diferente, baixa.
+      // Removemos o bloqueio via localStorage ('ota_failed_version') para evitar falsos positivos.
+      // O plugin nativo fará o rollback se o app crashar no boot.
       
       if (data.version !== current.id) {
-        addLog('info', `Iniciando download da versão ${data.version}`);
+        addLog('info', `Nova versão detectada: ${data.version}. Iniciando processo...`);
         setVersionInfo({ version: data.version, note: data.note });
-        // Marca como falha preventivamente (se crashar, já está salvo)
-        localStorage.setItem('ota_failed_version', data.version);
         downloadUpdate(data.url, data.version);
       } else {
+        addLog('info', 'App atualizado.');
         setStatus('idle');
       }
     } catch (e) {
@@ -142,21 +129,21 @@ export const OtaUpdater: React.FC = () => {
         version: version,
       });
       
-      addLog('info', 'Download concluído. Configurando...');
+      addLog('info', 'Download concluído. Configurando boot...');
       await CapacitorUpdater.set(versionObj);
       
-      addLog('info', 'Update setado. Pronto para reload.');
+      addLog('info', 'Update configurado. Pronto para reiniciar.');
       setStatus('ready');
     } catch (e) {
       addLog('error', `Erro no download/set: ${JSON.stringify(e)}`);
-      // Se falhar o download explicitamente, removemos a flag de falha pois não foi crash do app
-      localStorage.removeItem('ota_failed_version'); 
       setStatus('error');
-      setTimeout(() => setStatus('idle'), 4000);
+      // Reseta para idle após um tempo para permitir nova tentativa futura
+      setTimeout(() => setStatus('idle'), 5000);
     }
   };
 
   const handleReload = async () => {
+    // Recarrega a página para carregar os novos arquivos do bundle
     window.location.reload(); 
   };
 
@@ -170,10 +157,10 @@ export const OtaUpdater: React.FC = () => {
   };
 
   const clearLogsAndReset = () => {
-    localStorage.removeItem('ota_failed_version');
+    localStorage.removeItem('ota_failed_version'); // Limpeza legado
     localStorage.removeItem('app_debug_logs');
     setLogs([]);
-    alert("Cache limpo. Reinicie o app para tentar atualizar novamente.");
+    alert("Logs limpos.");
     setShowDebug(false);
     setStatus('idle');
     checkForUpdates();
@@ -202,7 +189,7 @@ export const OtaUpdater: React.FC = () => {
             onClick={clearLogsAndReset}
             className="flex-1 bg-red-900/50 border border-red-500 text-red-200 py-3 rounded-lg font-bold flex items-center justify-center gap-2"
           >
-            <Trash2 size={16} /> RESETAR BLOQUEIO & LOGS
+            <Trash2 size={16} /> LIMPAR LOGS
           </button>
         </div>
       </div>
