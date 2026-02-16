@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { CapacitorUpdater } from '@capgo/capacitor-updater';
 import { Capacitor } from '@capacitor/core';
-import { Cloud, ArrowDownCircle, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { Cloud, ArrowDownCircle, RefreshCw, CheckCircle, AlertCircle, XCircle, ShieldAlert } from 'lucide-react';
 import { useTheme } from '../themeContext';
 import { P } from './Typography';
 
@@ -11,7 +11,7 @@ const GITHUB_VERSION_URL = 'https://raw.githubusercontent.com/hudsonfs7/BabyAlbu
 
 export const OtaUpdater: React.FC = () => {
   const { colors } = useTheme();
-  const [status, setStatus] = useState<'idle' | 'checking' | 'downloading' | 'ready' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'checking' | 'downloading' | 'ready' | 'error' | 'blocked'>('idle');
   const [progress, setProgress] = useState(0);
   const [versionInfo, setVersionInfo] = useState<{ version: string, note?: string } | null>(null);
 
@@ -21,9 +21,7 @@ export const OtaUpdater: React.FC = () => {
     const initUpdater = async () => {
       try {
         // Notifica o sistema nativo que a versão atual carregou com sucesso
-        // Se isso não for chamado, o Capgo reverte para a versão anterior após 30s
         await CapacitorUpdater.notifyAppReady();
-        
         checkForUpdates();
       } catch (e) {
         console.error("Erro ao inicializar updater:", e);
@@ -38,8 +36,7 @@ export const OtaUpdater: React.FC = () => {
     
     setStatus('checking');
     try {
-      // 1. Busca o JSON de versão no GitHub
-      // Adiciona timestamp para evitar cache
+      // 1. Busca o JSON de versão no GitHub com timestamp para evitar cache
       const response = await fetch(`${GITHUB_VERSION_URL}?t=${Date.now()}`);
       if (!response.ok) throw new Error("Falha ao buscar versão");
       
@@ -48,23 +45,46 @@ export const OtaUpdater: React.FC = () => {
       // 2. Verifica qual versão está rodando atualmente
       const current = await CapacitorUpdater.current();
       
-      // Compara versões (Simples string compare, idealmente usar semver)
+      // 3. LÓGICA ANTI-LOOP (Bad Update Guard)
+      const failedVersion = localStorage.getItem('ota_failed_version');
+      
+      if (current.id === data.version) {
+        // Sucesso: Estamos na versão nova. Limpa a flag de erro.
+        localStorage.removeItem('ota_failed_version');
+        setStatus('idle');
+        return;
+      }
+
+      if (failedVersion === data.version) {
+        console.warn(`Atualização para ${data.version} falhou anteriormente. Bloqueando.`);
+        setVersionInfo({ version: data.version, note: "Versão instável detectada" });
+        setStatus('blocked'); 
+        // Removemos o status blocked após alguns segundos para não poluir a tela,
+        // mas impedimos o download.
+        setTimeout(() => setStatus('idle'), 8000);
+        return;
+      }
+      
+      // Se versões diferem e não está na lista negra, baixa.
       if (data.version !== current.id) {
         setVersionInfo({ version: data.version, note: data.note });
+        
+        // Marca essa versão como "tentativa".
+        localStorage.setItem('ota_failed_version', data.version);
+        
         downloadUpdate(data.url, data.version);
       } else {
         setStatus('idle');
       }
     } catch (e) {
       console.error("Sem atualizações ou erro:", e);
-      setStatus('idle'); // Falha silenciosa para não incomodar o usuário
+      setStatus('idle');
     }
   };
 
   const downloadUpdate = async (url: string, version: string) => {
     setStatus('downloading');
     
-    // Listener de progresso (Opcional, o Capgo suporta em versões mais novas)
     CapacitorUpdater.addListener('download', (info: any) => {
       setProgress(info.percent);
     });
@@ -75,19 +95,18 @@ export const OtaUpdater: React.FC = () => {
         version: version,
       });
       
-      // Define como a próxima versão a ser carregada
       await CapacitorUpdater.set(versionObj);
       setStatus('ready');
     } catch (e) {
       console.error("Erro no download:", e);
+      // Erro de download (rede) não é erro de boot. Permite tentar de novo.
+      localStorage.removeItem('ota_failed_version'); 
       setStatus('error');
-      setTimeout(() => setStatus('idle'), 3000);
+      setTimeout(() => setStatus('idle'), 4000);
     }
   };
 
   const handleReload = async () => {
-    // Recarrega o app para aplicar a atualização
-    // Em alguns casos o 'set' já faz isso se configurado, mas forçar é seguro
     window.location.reload(); 
   };
 
@@ -95,28 +114,40 @@ export const OtaUpdater: React.FC = () => {
 
   return (
     <div className="fixed bottom-24 left-6 right-6 z-50 pointer-events-none flex justify-center animate-in slide-in-from-bottom duration-500">
-      <div className={`pointer-events-auto bg-white/95 backdrop-blur-md border-2 ${colors.border} shadow-xl rounded-2xl p-4 flex items-center gap-4 max-w-sm w-full`}>
+      <div className={`pointer-events-auto bg-white/95 backdrop-blur-md border-2 ${colors.border} shadow-[0_8px_30px_rgba(0,0,0,0.12)] rounded-[2rem] p-5 flex items-center gap-4 max-w-sm w-full`}>
         
         {/* Ícone de Status */}
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${status === 'error' ? 'bg-red-100 text-red-500' : `${colors.secondary} ${colors.accent}`}`}>
+        <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
+          status === 'error' ? 'bg-red-50 text-red-400' : 
+          status === 'blocked' ? 'bg-orange-50 text-orange-400' :
+          status === 'checking' ? 'bg-gray-50 text-gray-400' :
+          `${colors.secondary} ${colors.accent}`
+        }`}>
           {status === 'checking' && <RefreshCw size={20} className="animate-spin" />}
           {status === 'downloading' && <ArrowDownCircle size={20} className="animate-bounce" />}
-          {status === 'ready' && <CheckCircle size={20} />}
-          {status === 'error' && <AlertCircle size={20} />}
+          {status === 'ready' && <CheckCircle size={24} />}
+          {status === 'error' && <XCircle size={24} />}
+          {status === 'blocked' && <ShieldAlert size={24} />}
         </div>
 
         {/* Texto */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           {status === 'checking' && (
-            <P className="text-xs font-bold text-gray-500">Buscando novidades...</P>
+            <div className="flex flex-col">
+              <P className="text-xs font-bold text-gray-600">Verificando...</P>
+              <P className="text-[10px] text-gray-400 truncate">Buscando atualizações</P>
+            </div>
           )}
           
           {status === 'downloading' && (
-            <div>
-              <P className="text-xs font-bold text-gray-700">Baixando atualização...</P>
-              <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2 overflow-hidden">
+            <div className="w-full">
+              <div className="flex justify-between items-end mb-2">
+                <P className="text-xs font-bold text-gray-700">Baixando magia...</P>
+                <span className="text-[10px] font-bold text-gray-400">{Math.round(progress)}%</span>
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden shadow-inner">
                 <div 
-                  className={`h-full ${colors.primary} transition-all duration-300`} 
+                  className={`h-full ${colors.primary} transition-all duration-300 rounded-full`} 
                   style={{ width: `${progress}%` }}
                 ></div>
               </div>
@@ -124,14 +155,26 @@ export const OtaUpdater: React.FC = () => {
           )}
 
           {status === 'ready' && (
-            <div>
-              <P className="text-xs font-bold text-gray-700">Nova versão pronta!</P>
-              <P className="text-[10px] text-gray-400">{versionInfo?.note || "Melhorias disponíveis"}</P>
+            <div className="flex flex-col">
+              <P className="text-sm font-bold text-gray-800">Tudo pronto!</P>
+              <P className="text-[10px] text-gray-500 leading-tight mt-0.5 line-clamp-1">
+                {versionInfo?.note || "Toque para atualizar o álbum"}
+              </P>
             </div>
           )}
 
            {status === 'error' && (
-            <P className="text-xs font-bold text-red-400">Ops, tente mais tarde.</P>
+            <div className="flex flex-col">
+              <P className="text-xs font-bold text-red-400">Falha ao baixar</P>
+              <P className="text-[10px] text-gray-400">Tente novamente mais tarde</P>
+            </div>
+          )}
+
+          {status === 'blocked' && (
+            <div className="flex flex-col">
+              <P className="text-xs font-bold text-orange-400">Atualização Cancelada</P>
+              <P className="text-[10px] text-gray-400 leading-tight">Versão instável detectada. O app foi restaurado.</P>
+            </div>
           )}
         </div>
 
@@ -139,7 +182,7 @@ export const OtaUpdater: React.FC = () => {
         {status === 'ready' && (
           <button 
             onClick={handleReload}
-            className={`px-4 py-2 rounded-xl ${colors.primary} text-white text-xs font-bold shadow-md active:scale-95 transition-transform`}
+            className={`px-5 py-3 rounded-xl ${colors.primary} text-white text-xs font-bold shadow-lg shadow-blue-200/50 active:scale-95 transition-all hover:brightness-110 whitespace-nowrap`}
           >
             Atualizar
           </button>
