@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Terminal, RefreshCw, Trash2, Power, ShieldAlert, Cpu, Activity, Database, LogOut } from 'lucide-react';
 import { CapacitorUpdater } from '@capgo/capacitor-updater';
@@ -44,7 +45,7 @@ export const AdminDashboard: React.FC<{ onLogout: () => void }> = ({ onLogout })
         try {
             const current = await CapacitorUpdater.current();
             setVersionInfo({
-                current: current.bundleId,
+                current: current.bundle,
                 native: (await CapacitorUpdater.getLatest()).url || 'N/A'
             });
         } catch (e) {
