@@ -1,7 +1,6 @@
-
 {
   "platform": "android",
   "release": "debug",
-  "androidSDK": "34",
+  "androidSDK": "35",
   "nodeVersion": "20"
 }

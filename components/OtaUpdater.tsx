@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { CapacitorUpdater } from '@capgo/capacitor-updater';
 import { Capacitor } from '@capacitor/core';
@@ -95,13 +94,13 @@ export const OtaUpdater: React.FC = () => {
       addLog('info', `Versão remota: ${data.version}`);
 
       const current = await CapacitorUpdater.current();
-      addLog('info', `Versão atual instalada: ${current.id}`);
+      addLog('info', `Versão atual instalada: ${current.bundleId}`);
 
       // Lógica Simplificada: Se for diferente, baixa.
       // Removemos o bloqueio via localStorage ('ota_failed_version') para evitar falsos positivos.
       // O plugin nativo fará o rollback se o app crashar no boot.
       
-      if (data.version !== current.id) {
+      if (data.version !== current.bundleId) {
         addLog('info', `Nova versão detectada: ${data.version}. Iniciando processo...`);
         setVersionInfo({ version: data.version, note: data.note });
         downloadUpdate(data.url, data.version);

@@ -26,6 +26,17 @@ jobs:
       - name: Capacitor Sync
         run: npx cap sync android
 
+      - name: Patch Android SDK Version
+        run: |
+          # Patch variables.gradle to use SDK 35 (Required by androidx.work:work-runtime:2.10.5)
+          if [ -f "android/variables.gradle" ]; then
+            sed -i 's/compileSdkVersion = 34/compileSdkVersion = 35/g' android/variables.gradle
+            sed -i 's/targetSdkVersion = 34/targetSdkVersion = 35/g' android/variables.gradle
+            echo "Updated SDK version to 35 in variables.gradle"
+          else
+            echo "Warning: android/variables.gradle not found"
+          fi
+
       - name: Build Android APK
         run: |
           cd android
