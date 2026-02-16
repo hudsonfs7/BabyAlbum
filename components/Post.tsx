@@ -122,9 +122,9 @@ export const PostCard: React.FC<PostProps> = ({ post, currentUser, isFriend }) =
       await new Promise(resolve => setTimeout(resolve, 100));
 
       const canvas = await html2canvas(storyRef.current, {
-        scale: 2, 
+        scale: 4, // Qualidade Alta para Redes Sociais
         useCORS: true, 
-        backgroundColor: null,
+        backgroundColor: '#fffbf7', // Cor de fundo explícita para evitar transparência
         logging: false,
         allowTaint: true
       });
@@ -158,7 +158,7 @@ export const PostCard: React.FC<PostProps> = ({ post, currentUser, isFriend }) =
             } finally {
               setIsSharing(false);
             }
-         }, 'image/png', 0.9);
+         }, 'image/png', 1.0); // Qualidade máxima
 
       } else {
         // === MODO WEB (NAVEGADOR) ===
@@ -195,7 +195,7 @@ export const PostCard: React.FC<PostProps> = ({ post, currentUser, isFriend }) =
             }
           }
           setIsSharing(false);
-        }, 'image/png', 0.9);
+        }, 'image/png', 1.0);
       }
 
     } catch (error) {
@@ -480,7 +480,7 @@ export const PostCard: React.FC<PostProps> = ({ post, currentUser, isFriend }) =
             */}
             <div 
               ref={storyRef}
-              className="bg-[#fffefc] px-1 py-4 sm:p-6 rounded-[1.5rem] shadow-[0_20px_60px_-10px_rgba(0,0,0,0.1)] border border-stone-100 relative w-full max-w-lg transform transition-all"
+              className="bg-[#fffbf7] px-1 py-4 sm:p-6 rounded-[1.5rem] shadow-[0_20px_60px_-10px_rgba(0,0,0,0.1)] border border-stone-100 relative w-full max-w-lg transform transition-all"
               style={{
                 backgroundImage: `radial-gradient(#00000005 1px, transparent 0)`,
                 backgroundSize: '24px 24px'

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { CapacitorUpdater } from '@capgo/capacitor-updater';
 import { Capacitor } from '@capacitor/core';
-import { Cloud, ArrowDownCircle, RefreshCw, CheckCircle, AlertCircle, XCircle, ShieldAlert } from 'lucide-react';
+import { ArrowDownCircle, RefreshCw, CheckCircle, XCircle, ShieldAlert } from 'lucide-react';
 import { useTheme } from '../themeContext';
 import { P } from './Typography';
 
@@ -20,7 +20,6 @@ export const OtaUpdater: React.FC = () => {
 
     const initUpdater = async () => {
       try {
-        // Notifica o sistema nativo que a versão atual carregou com sucesso
         await CapacitorUpdater.notifyAppReady();
         checkForUpdates();
       } catch (e) {
@@ -36,48 +35,34 @@ export const OtaUpdater: React.FC = () => {
     
     setStatus('checking');
     try {
-      // 1. Busca o JSON de versão no GitHub com timestamp para evitar cache
       const response = await fetch(`${GITHUB_VERSION_URL}?t=${Date.now()}`);
       if (!response.ok) throw new Error("Falha ao buscar versão");
       
       const data = await response.json();
-      
-      // 2. Verifica qual versão está rodando atualmente
       const current = await CapacitorUpdater.current();
-      
-      // 3. LÓGICA ANTI-LOOP (Bad Update Guard)
       const failedVersion = localStorage.getItem('ota_failed_version');
       
       if (current.id === data.version) {
-        // Sucesso: Estamos na versão nova. Limpa a flag de erro.
         localStorage.removeItem('ota_failed_version');
         setStatus('idle');
         return;
       }
 
       if (failedVersion === data.version) {
-        console.warn(`Atualização para ${data.version} falhou anteriormente. Bloqueando.`);
-        setVersionInfo({ version: data.version, note: "Versão instável detectada" });
+        setVersionInfo({ version: data.version, note: "Versão instável" });
         setStatus('blocked'); 
-        // Removemos o status blocked após alguns segundos para não poluir a tela,
-        // mas impedimos o download.
-        setTimeout(() => setStatus('idle'), 8000);
+        setTimeout(() => setStatus('idle'), 5000);
         return;
       }
       
-      // Se versões diferem e não está na lista negra, baixa.
       if (data.version !== current.id) {
         setVersionInfo({ version: data.version, note: data.note });
-        
-        // Marca essa versão como "tentativa".
         localStorage.setItem('ota_failed_version', data.version);
-        
         downloadUpdate(data.url, data.version);
       } else {
         setStatus('idle');
       }
     } catch (e) {
-      console.error("Sem atualizações ou erro:", e);
       setStatus('idle');
     }
   };
@@ -99,7 +84,6 @@ export const OtaUpdater: React.FC = () => {
       setStatus('ready');
     } catch (e) {
       console.error("Erro no download:", e);
-      // Erro de download (rede) não é erro de boot. Permite tentar de novo.
       localStorage.removeItem('ota_failed_version'); 
       setStatus('error');
       setTimeout(() => setStatus('idle'), 4000);
@@ -112,40 +96,48 @@ export const OtaUpdater: React.FC = () => {
 
   if (status === 'idle' || !Capacitor.isNativePlatform()) return null;
 
+  // Renderização compacta para erros
+  if (status === 'error' || status === 'blocked') {
+    return (
+      <div className="fixed bottom-24 left-0 right-0 z-50 pointer-events-none flex justify-center animate-in slide-in-from-bottom duration-300">
+        <div className="bg-white/90 backdrop-blur-md shadow-lg border border-red-100 rounded-full py-2 px-4 flex items-center gap-2">
+           {status === 'blocked' ? <ShieldAlert size={16} className="text-orange-400" /> : <XCircle size={16} className="text-red-400" />}
+           <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+             {status === 'blocked' ? 'Atualização evitada' : 'Falha na conexão'}
+           </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Renderização padrão para download/ready
   return (
     <div className="fixed bottom-24 left-6 right-6 z-50 pointer-events-none flex justify-center animate-in slide-in-from-bottom duration-500">
-      <div className={`pointer-events-auto bg-white/95 backdrop-blur-md border-2 ${colors.border} shadow-[0_8px_30px_rgba(0,0,0,0.12)] rounded-[2rem] p-5 flex items-center gap-4 max-w-sm w-full`}>
+      <div className={`pointer-events-auto bg-white/95 backdrop-blur-md border-2 ${colors.border} shadow-[0_8px_30px_rgba(0,0,0,0.12)] rounded-[2rem] p-4 flex items-center gap-4 max-w-sm w-full`}>
         
-        {/* Ícone de Status */}
-        <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
-          status === 'error' ? 'bg-red-50 text-red-400' : 
-          status === 'blocked' ? 'bg-orange-50 text-orange-400' :
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm transition-colors duration-300 ${
           status === 'checking' ? 'bg-gray-50 text-gray-400' :
           `${colors.secondary} ${colors.accent}`
         }`}>
-          {status === 'checking' && <RefreshCw size={20} className="animate-spin" />}
-          {status === 'downloading' && <ArrowDownCircle size={20} className="animate-bounce" />}
-          {status === 'ready' && <CheckCircle size={24} />}
-          {status === 'error' && <XCircle size={24} />}
-          {status === 'blocked' && <ShieldAlert size={24} />}
+          {status === 'checking' && <RefreshCw size={18} className="animate-spin" />}
+          {status === 'downloading' && <ArrowDownCircle size={18} className="animate-bounce" />}
+          {status === 'ready' && <CheckCircle size={20} />}
         </div>
 
-        {/* Texto */}
         <div className="flex-1 min-w-0">
           {status === 'checking' && (
             <div className="flex flex-col">
-              <P className="text-xs font-bold text-gray-600">Verificando...</P>
-              <P className="text-[10px] text-gray-400 truncate">Buscando atualizações</P>
+              <P className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Verificando...</P>
             </div>
           )}
           
           {status === 'downloading' && (
             <div className="w-full">
-              <div className="flex justify-between items-end mb-2">
-                <P className="text-xs font-bold text-gray-700">Baixando magia...</P>
-                <span className="text-[10px] font-bold text-gray-400">{Math.round(progress)}%</span>
+              <div className="flex justify-between items-end mb-1.5">
+                <P className="text-xs font-bold text-gray-700">Baixando novidades</P>
+                <span className="text-[9px] font-bold text-gray-400">{Math.round(progress)}%</span>
               </div>
-              <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden shadow-inner">
+              <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
                 <div 
                   className={`h-full ${colors.primary} transition-all duration-300 rounded-full`} 
                   style={{ width: `${progress}%` }}
@@ -157,32 +149,17 @@ export const OtaUpdater: React.FC = () => {
           {status === 'ready' && (
             <div className="flex flex-col">
               <P className="text-sm font-bold text-gray-800">Tudo pronto!</P>
-              <P className="text-[10px] text-gray-500 leading-tight mt-0.5 line-clamp-1">
-                {versionInfo?.note || "Toque para atualizar o álbum"}
+              <P className="text-[10px] text-gray-500 leading-tight mt-0.5 truncate">
+                {versionInfo?.note || "Nova versão disponível"}
               </P>
-            </div>
-          )}
-
-           {status === 'error' && (
-            <div className="flex flex-col">
-              <P className="text-xs font-bold text-red-400">Falha ao baixar</P>
-              <P className="text-[10px] text-gray-400">Tente novamente mais tarde</P>
-            </div>
-          )}
-
-          {status === 'blocked' && (
-            <div className="flex flex-col">
-              <P className="text-xs font-bold text-orange-400">Atualização Cancelada</P>
-              <P className="text-[10px] text-gray-400 leading-tight">Versão instável detectada. O app foi restaurado.</P>
             </div>
           )}
         </div>
 
-        {/* Ação */}
         {status === 'ready' && (
           <button 
             onClick={handleReload}
-            className={`px-5 py-3 rounded-xl ${colors.primary} text-white text-xs font-bold shadow-lg shadow-blue-200/50 active:scale-95 transition-all hover:brightness-110 whitespace-nowrap`}
+            className={`px-4 py-2 rounded-xl ${colors.primary} text-white text-[10px] font-bold uppercase tracking-wider shadow-lg active:scale-95 transition-all`}
           >
             Atualizar
           </button>

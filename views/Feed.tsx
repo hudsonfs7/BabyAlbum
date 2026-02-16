@@ -1,10 +1,10 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { PostCard } from '../components/Post';
 import { H1, P } from '../components/Typography';
 import { Post, User } from '../types';
 import { useTheme } from '../themeContext';
-import { Sparkles, Baby, Cloud, Loader2 } from 'lucide-react';
+import { Sparkles, Baby, Cloud, Loader2, RefreshCw } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, query, onSnapshot, where } from 'firebase/firestore';
 import { calculateBabyAge } from '../utils/dateUtils';
@@ -14,8 +14,12 @@ export const Feed: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // CORREÇÃO: Inicializa o usuário imediatamente lendo do localStorage
-  // Isso evita que o estado comece como null e falhe na primeira execução do efeito
+  // Pull to Refresh State
+  const [pullY, setPullY] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const touchStartRef = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('baby_user');
     return saved ? JSON.parse(saved) : null;
@@ -27,10 +31,6 @@ export const Feed: React.FC = () => {
       return;
     }
 
-    // LÓGICA DE ISOLAMENTO:
-    // Filtra posts onde userId == id do usuário atual.
-    // Removido orderBy do servidor para evitar erro de índice composto. 
-    // A ordenação é feita no cliente.
     const q = query(
       collection(db, "posts"), 
       where("userId", "==", user.id)
@@ -41,10 +41,7 @@ export const Feed: React.FC = () => {
       querySnapshot.forEach((doc) => {
         postsData.push({ id: doc.id, ...doc.data() } as Post);
       });
-      
-      // Ordenação no cliente (mais recente primeiro)
       postsData.sort((a, b) => b.createdAt - a.createdAt);
-
       setPosts(postsData);
       setLoading(false);
     }, (error) => {
@@ -53,11 +50,62 @@ export const Feed: React.FC = () => {
     });
 
     return () => unsubscribe();
-  }, [user]); // Adicionada dependência 'user' para garantir execução
+  }, [user]);
+
+  // Lógica Pull to Refresh
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY === 0) {
+      touchStartRef.current = e.touches[0].clientY;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartRef.current === 0 || window.scrollY > 0) return;
+    
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - touchStartRef.current;
+    
+    if (diff > 0) {
+      // Resistência ao puxar (física amortecida)
+      setPullY(Math.min(diff * 0.5, 120)); 
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (pullY > 80) {
+      setIsRefreshing(true);
+      setPullY(60); // Mantém o indicador visível
+      setTimeout(() => {
+         window.location.reload(); // Recarrega o app real
+      }, 1000);
+    } else {
+      setPullY(0);
+    }
+    touchStartRef.current = 0;
+  };
 
   return (
-    <div className="px-1.5 py-6">
-      <header className="py-8 mb-2 flex flex-col items-center text-center">
+    <div 
+      ref={containerRef}
+      className="px-1.5 py-6 min-h-screen"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Pull To Refresh Indicator */}
+      <div 
+        className="fixed top-0 left-0 right-0 flex justify-center pointer-events-none z-50 transition-transform duration-200 ease-out"
+        style={{ transform: `translateY(${pullY > 0 ? pullY - 40 : -50}px)` }}
+      >
+        <div className={`w-10 h-10 rounded-full bg-white shadow-lg border-2 border-blue-100 flex items-center justify-center ${isRefreshing ? 'animate-spin' : ''}`}>
+           {isRefreshing ? <RefreshCw size={20} className="text-blue-400" /> : <Cloud size={20} className="text-blue-300" />}
+        </div>
+      </div>
+
+      <header 
+        className="py-8 mb-2 flex flex-col items-center text-center transition-transform duration-300"
+        style={{ transform: `translateY(${pullY * 0.3}px)` }}
+      >
         <div className="relative mb-6">
           <div className={`w-20 h-20 rounded-[1.8rem] ${colors.secondary} flex items-center justify-center shadow-lg ring-8 ring-white rotate-6 overflow-hidden`}>
             {user?.babyAvatar ? (
@@ -102,7 +150,7 @@ export const Feed: React.FC = () => {
           <P className="text-gray-400">Nenhuma memória ainda.<br/>Que tal guardar a primeira?</P>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4 transition-transform duration-300" style={{ transform: `translateY(${pullY * 0.1}px)` }}>
           {posts.map(post => (
             <PostCard 
               key={post.id} 
