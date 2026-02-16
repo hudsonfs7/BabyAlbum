@@ -6,6 +6,7 @@ import { Feed } from './views/Feed';
 import { CreatePost } from './views/CreatePost';
 import { Profile } from './views/Profile';
 import { Auth } from './views/Auth';
+import { AdminDashboard } from './views/AdminDashboard';
 import { Home, Plus, User as UserIcon } from 'lucide-react';
 import { VISUAL_STANDARDS } from './styles';
 import { User } from './types';
@@ -101,6 +102,11 @@ const AppContent: React.FC = () => {
     setLoading(false);
   }, [setGender]);
 
+  const handleLogout = () => {
+    localStorage.removeItem('baby_user');
+    setUser(null);
+  };
+
   if (loading) return null;
 
   if (!user) {
@@ -115,6 +121,12 @@ const AppContent: React.FC = () => {
       }
     }} />;
   }
+
+  // --- GOD MODE ROUTING ---
+  if (user.role === 'ADMIN') {
+    return <AdminDashboard onLogout={handleLogout} />;
+  }
+  // ------------------------
 
   return (
     <div className={VISUAL_STANDARDS.container}>

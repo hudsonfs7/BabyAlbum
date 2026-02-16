@@ -4,8 +4,8 @@ export enum Gender {
   GIRL = 'GIRL'
 }
 
-export type ParentRole = 'Papai' | 'Mamãe';
-export type PersonaType = 'Coruja' | 'Girafa' | 'Coelho' | 'Urso' | 'Leão' | 'Elefante';
+export type ParentRole = 'Papai' | 'Mamãe' | 'ADMIN';
+export type PersonaType = 'Coruja' | 'Girafa' | 'Coelho' | 'Urso' | 'Leão' | 'Elefante' | 'SISTEMA';
 export type PrivacyLevel = 'PUBLIC' | 'PRIVATE' | 'FAMILY';
 
 export interface User {

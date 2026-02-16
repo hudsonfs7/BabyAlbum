@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, MapPin, Stars, Loader2, Sparkles, BookOpen, Move, ZoomIn } from 'lucide-react';
 import { useTheme } from '../themeContext';
@@ -19,7 +18,8 @@ const PERSONA_EMOJIS: Record<PersonaType, string> = {
   'Coelho': '🐰',
   'Urso': '🐻',
   'Leão': '🦁',
-  'Elefante': '🐘'
+  'Elefante': '🐘',
+  'SISTEMA': '🤖'
 };
 
 export const CreatePost: React.FC = () => {
