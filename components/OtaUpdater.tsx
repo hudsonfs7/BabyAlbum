@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { CapacitorUpdater } from '@capgo/capacitor-updater';
 import { Capacitor } from '@capacitor/core';
@@ -64,7 +63,8 @@ export const OtaUpdater: React.FC = () => {
       let currentBundle = "";
       try {
         const current = await CapacitorUpdater.current();
-        currentBundle = current.id || ""; 
+        // Cast to any because TS might complain about id property depending on version
+        currentBundle = (current as any).id || ""; 
       } catch (e) {
         addLog('info', 'Versão nativa (0.0.0).');
         currentBundle = "";

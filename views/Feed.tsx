@@ -4,7 +4,7 @@ import { PostCard } from '../components/Post';
 import { H1, P } from '../components/Typography';
 import { Post, User } from '../types';
 import { useTheme } from '../themeContext';
-import { Sparkles, Baby, Cloud, Loader2, RefreshCw } from 'lucide-react';
+import { Sparkles, Baby, Cloud, Loader2, RefreshCw, WifiOff } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, query, onSnapshot, where } from 'firebase/firestore';
 import { calculateBabyAge } from '../utils/dateUtils';
@@ -13,6 +13,7 @@ export const Feed: React.FC = () => {
   const { colors } = useTheme();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   
   // Pull to Refresh State
   const [pullY, setPullY] = useState(0);
@@ -24,6 +25,20 @@ export const Feed: React.FC = () => {
     const saved = localStorage.getItem('baby_user');
     return saved ? JSON.parse(saved) : null;
   });
+
+  // Monitor de Conexão
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -47,6 +62,8 @@ export const Feed: React.FC = () => {
     }, (error) => {
       console.error("Erro ao buscar posts:", error);
       setLoading(false);
+      // Se der erro (provavelmente rede), e não tivermos posts, garantimos que o loading pare
+      if (posts.length === 0) setLoading(false);
     });
 
     return () => unsubscribe();
@@ -145,21 +162,50 @@ export const Feed: React.FC = () => {
           <P className="text-xs font-bold uppercase tracking-widest">Abrindo o álbum...</P>
         </div>
       ) : posts.length === 0 ? (
-        <div className="text-center py-20 bg-white/40 rounded-[3rem] border-4 border-dashed border-white mx-2">
-          <Cloud size={60} className="mx-auto mb-4 opacity-10" />
-          <P className="text-gray-400">Nenhuma memória ainda.<br/>Que tal guardar a primeira?</P>
-        </div>
+        // Lógica de Estado Vazio ou Offline
+        !isOnline ? (
+          <div className="text-center py-20 mx-4 animate-in fade-in duration-500">
+             <div className="bg-red-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-sm">
+                <WifiOff size={32} className="text-red-300" />
+             </div>
+             <P className="text-gray-500 font-bold mb-1">Sem conexão</P>
+             <P className="text-xs text-gray-400 max-w-[200px] mx-auto">
+               Não conseguimos carregar suas memórias. Verifique sua internet.
+             </P>
+             <button 
+               onClick={() => window.location.reload()}
+               className="mt-6 px-6 py-2 rounded-full bg-white border border-gray-200 text-xs font-bold text-gray-500 shadow-sm active:scale-95 transition-transform"
+             >
+               Tentar de novo
+             </button>
+          </div>
+        ) : (
+          <div className="text-center py-20 bg-white/40 rounded-[3rem] border-4 border-dashed border-white mx-2 animate-in fade-in duration-500">
+            <Cloud size={60} className="mx-auto mb-4 opacity-10" />
+            <P className="text-gray-400">Nenhuma memória ainda.<br/>Que tal guardar a primeira?</P>
+          </div>
+        )
       ) : (
-        <div className="space-y-4 transition-transform duration-300" style={{ transform: `translateY(${pullY * 0.1}px)` }}>
-          {posts.map(post => (
-            <PostCard 
-              key={post.id} 
-              post={post} 
-              currentUser={user!} 
-              isFriend={true}
-            />
-          ))}
-        </div>
+        <>
+          {/* Banner Offline Discreto se tiver posts mas caiu a net */}
+          {!isOnline && (
+            <div className="mb-4 mx-4 bg-red-50 border border-red-100 p-2 rounded-xl flex items-center justify-center gap-2">
+              <WifiOff size={12} className="text-red-400" />
+              <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Modo Offline</span>
+            </div>
+          )}
+          
+          <div className="space-y-4 transition-transform duration-300" style={{ transform: `translateY(${pullY * 0.1}px)` }}>
+            {posts.map(post => (
+              <PostCard 
+                key={post.id} 
+                post={post} 
+                currentUser={user!} 
+                isFriend={true}
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
