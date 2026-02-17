@@ -35,115 +35,117 @@ export const OtaUpdater: React.FC = () => {
         setLogs(JSON.parse(savedLogs));
       } catch (e) {}
     }
-    
-    // Intercepta erros globais para salvar no log
-    const originalError = console.error;
-    console.error = (...args) => {
-      addLog('error', args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' '));
-      originalError.apply(console, args);
-    };
-
-    const originalWarn = console.warn;
-    console.warn = (...args) => {
-      addLog('warn', args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' '));
-      originalWarn.apply(console, args);
-    };
-
   }, []);
 
   const addLog = (type: 'info' | 'error' | 'warn', msg: string) => {
     const newLog = {
       type,
-      msg: msg.substring(0, 300), // Limita tamanho
+      msg: msg.substring(0, 300),
       time: new Date().toLocaleTimeString()
     };
     
     setLogs(prev => {
-      const updated = [newLog, ...prev].slice(0, 50); // Guarda os ultimos 50
+      const updated = [newLog, ...prev].slice(0, 50);
       localStorage.setItem('app_debug_logs', JSON.stringify(updated));
       return updated;
     });
   };
 
+  // Lógica principal de atualização - Executa APENAS UMA VEZ na montagem
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
-    const initUpdater = async () => {
+    const executeOtaLogic = async () => {
+      setStatus('checking');
+      
+      // 1. Notify App Ready (Confirma que a versão atual está estável)
       try {
-        addLog('info', 'Iniciando CapacitorUpdater notifyAppReady');
         await CapacitorUpdater.notifyAppReady();
-        addLog('info', 'AppReady notificado com sucesso');
-        checkForUpdates();
+        addLog('info', 'AppReady notificado.');
       } catch (e) {
-        addLog('error', `Erro notifyAppReady: ${JSON.stringify(e)}`);
+        addLog('warn', 'Falha notifyAppReady (pode ser versão nativa).');
       }
+
+      // 2. Obter Versão Remota (Se falhar, sem internet -> aborta silenciosamente)
+      let remoteData;
+      try {
+        addLog('info', 'Verificando versão remota...');
+        const response = await fetch(`${GITHUB_VERSION_URL}?t=${Date.now()}`);
+        if (!response.ok) throw new Error('Offline ou erro HTTP');
+        remoteData = await response.json();
+      } catch (e) {
+        addLog('warn', 'Sem internet ou erro ao buscar versão. Abortando.');
+        setStatus('idle');
+        return;
+      }
+
+      // 3. Obter Versão Atual do App
+      let currentBundle = "";
+      try {
+        const current = await CapacitorUpdater.current();
+        currentBundle = current.bundle || ""; // Garante string vazia se undefined
+      } catch (e) {
+        addLog('info', 'Versão nativa detectada (sem bundle ID).');
+        currentBundle = "";
+      }
+
+      addLog('info', `Atual: "${currentBundle}" | Remota: "${remoteData.version}"`);
+
+      // 4. Lógica de Comparação Estrita
+      if (currentBundle === remoteData.version) {
+        // Versões iguais: Não fazer nada.
+        addLog('info', 'Versões idênticas. Tudo atualizado.');
+        setStatus('idle');
+        return;
+      }
+
+      // Versões diferentes: Baixar e Instalar
+      addLog('info', `Atualizando de "${currentBundle}" para "${remoteData.version}"`);
+      setVersionInfo({ version: remoteData.version, note: remoteData.note });
+      
+      await downloadAndSetUpdate(remoteData.url, remoteData.version);
     };
 
-    initUpdater();
-  }, []);
+    executeOtaLogic();
+  }, []); // Array vazio garante execução única no boot
 
-  const checkForUpdates = async () => {
-    if (status === 'downloading' || status === 'ready') return;
-    
-    setStatus('checking');
-    try {
-      addLog('info', `Buscando versão em: ${GITHUB_VERSION_URL}`);
-      const response = await fetch(`${GITHUB_VERSION_URL}?t=${Date.now()}`);
-      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-      
-      const data = await response.json();
-      addLog('info', `Versão remota: ${data.version}`);
-
-      const current = await CapacitorUpdater.current();
-      addLog('info', `Versão atual instalada: ${current.bundle}`);
-
-      // Lógica Simplificada: Se for diferente, baixa.
-      // Removemos o bloqueio via localStorage ('ota_failed_version') para evitar falsos positivos.
-      // O plugin nativo fará o rollback se o app crashar no boot.
-      
-      if (data.version !== current.bundle) {
-        addLog('info', `Nova versão detectada: ${data.version}. Iniciando processo...`);
-        setVersionInfo({ version: data.version, note: data.note });
-        downloadUpdate(data.url, data.version);
-      } else {
-        addLog('info', 'App atualizado.');
-        setStatus('idle');
-      }
-    } catch (e) {
-      addLog('error', `Erro checkUpdates: ${e}`);
-      setStatus('idle');
-    }
-  };
-
-  const downloadUpdate = async (url: string, version: string) => {
+  const downloadAndSetUpdate = async (url: string, version: string) => {
     setStatus('downloading');
     
-    CapacitorUpdater.addListener('download', (info: any) => {
+    // Listener de progresso
+    const listener = await CapacitorUpdater.addListener('download', (info: any) => {
       setProgress(info.percent);
     });
 
     try {
-      addLog('info', `Baixando ZIP: ${url}`);
+      addLog('info', `Iniciando download: ${version}`);
+      
       const versionObj = await CapacitorUpdater.download({
         url: url,
-        version: version,
+        version: version, // Importante: define o ID do bundle
       });
       
       addLog('info', 'Download concluído. Configurando boot...');
+      
       await CapacitorUpdater.set(versionObj);
       
-      addLog('info', 'Update configurado. Pronto para reiniciar.');
+      addLog('info', 'Boot configurado. App pronto para atualizar.');
       setStatus('ready');
+      
+      // Remove listener após sucesso
+      listener.remove();
+
     } catch (e) {
-      addLog('error', `Erro no download/set: ${JSON.stringify(e)}`);
+      addLog('error', `Erro crítico no download/set: ${JSON.stringify(e)}`);
       setStatus('error');
-      // Reseta para idle após um tempo para permitir nova tentativa futura
+      listener.remove();
+      // Reseta para idle após 5s
       setTimeout(() => setStatus('idle'), 5000);
     }
   };
 
   const handleReload = async () => {
-    // Recarrega a página para carregar os novos arquivos do bundle
+    // Recarrega para aplicar a nova versão
     window.location.reload(); 
   };
 
@@ -157,16 +159,13 @@ export const OtaUpdater: React.FC = () => {
   };
 
   const clearLogsAndReset = () => {
-    localStorage.removeItem('ota_failed_version'); // Limpeza legado
     localStorage.removeItem('app_debug_logs');
     setLogs([]);
-    alert("Logs limpos.");
     setShowDebug(false);
-    setStatus('idle');
-    checkForUpdates();
   };
 
-  // DEBUG OVERLAY
+  // --- UI RENDER ---
+
   if (showDebug) {
     return (
       <div className="fixed inset-0 z-[100] bg-black/90 text-green-400 p-4 font-mono text-xs overflow-hidden flex flex-col">
@@ -198,24 +197,22 @@ export const OtaUpdater: React.FC = () => {
 
   if (status === 'idle' || !Capacitor.isNativePlatform()) return null;
 
-  // Renderização compacta para erros
-  if (status === 'error' || status === 'blocked') {
+  if (status === 'error') {
     return (
       <div className="fixed bottom-24 left-0 right-0 z-50 flex justify-center animate-in slide-in-from-bottom duration-300">
         <div 
           onClick={handleDebugClick}
           className="bg-white/90 backdrop-blur-md shadow-lg border border-red-100 rounded-full py-2 px-4 flex items-center gap-2 cursor-pointer active:scale-95 transition-transform"
         >
-           {status === 'blocked' ? <ShieldAlert size={16} className="text-orange-400" /> : <XCircle size={16} className="text-red-400" />}
+           <XCircle size={16} className="text-red-400" />
            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
-             {status === 'blocked' ? 'Atualização evitada' : 'Falha na conexão'}
+             Falha na atualização
            </span>
         </div>
       </div>
     );
   }
 
-  // Renderização padrão para download/ready
   return (
     <div className="fixed bottom-24 left-6 right-6 z-50 pointer-events-none flex justify-center animate-in slide-in-from-bottom duration-500">
       <div className={`pointer-events-auto bg-white/95 backdrop-blur-md border-2 ${colors.border} shadow-[0_8px_30px_rgba(0,0,0,0.12)] rounded-[2rem] p-4 flex items-center gap-4 max-w-sm w-full`}>
@@ -232,7 +229,7 @@ export const OtaUpdater: React.FC = () => {
         <div className="flex-1 min-w-0">
           {status === 'checking' && (
             <div className="flex flex-col">
-              <P className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Verificando...</P>
+              <P className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Buscando atualizações...</P>
             </div>
           )}
           
