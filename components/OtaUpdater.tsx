@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { CapacitorUpdater } from '@capgo/capacitor-updater';
 import { Capacitor } from '@capacitor/core';
-import { ArrowDownCircle, RefreshCw, CheckCircle, XCircle, ShieldAlert, Terminal, Trash2, X } from 'lucide-react';
+import { ArrowDownCircle, RefreshCw, CheckCircle, XCircle, Terminal, Trash2, X, ShieldAlert } from 'lucide-react';
 import { useTheme } from '../themeContext';
 import { P } from './Typography';
 
@@ -51,108 +51,130 @@ export const OtaUpdater: React.FC = () => {
     });
   };
 
-  // Lógica principal de atualização - Executa APENAS UMA VEZ na montagem
+  // Lógica principal de atualização com TRAVA DE SEGURANÇA
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
-    const executeOtaLogic = async () => {
+    const executeSafeOtaLogic = async () => {
       setStatus('checking');
       
-      // 1. Notify App Ready (Confirma que a versão atual está estável)
+      // --- FASE 1: DIAGNÓSTICO DE BOOT (A Trava) ---
+      const lastAttempt = localStorage.getItem('ota_attempt_version');
+      
+      let currentBundle = "";
+      try {
+        const current = await CapacitorUpdater.current();
+        currentBundle = current.id || ""; 
+      } catch (e) {
+        addLog('info', 'Versão nativa (0.0.0).');
+        currentBundle = "";
+      }
+
+      addLog('info', `BOOT: Atual="${currentBundle || 'Nativa'}", Tentativa="${lastAttempt || 'Nenhuma'}"`);
+
+      // Se havia uma tentativa pendente...
+      if (lastAttempt) {
+        if (lastAttempt !== currentBundle) {
+          // ...e não estamos nela: O SISTEMA REVERTEU. FALHA GRAVE.
+          addLog('error', `TRAVA ATIVADA: Falha ao bootar versão ${lastAttempt}. Bloqueando.`);
+          localStorage.setItem('ota_failed_version', lastAttempt);
+          localStorage.removeItem('ota_attempt_version');
+        } else {
+          // ...e estamos nela: SUCESSO.
+          addLog('info', `Sucesso: Atualização para ${lastAttempt} confirmada.`);
+          localStorage.removeItem('ota_attempt_version');
+        }
+      }
+
+      // --- FASE 2: NOTIFICAR SISTEMA ---
       try {
         await CapacitorUpdater.notifyAppReady();
         addLog('info', 'AppReady notificado.');
       } catch (e) {
-        addLog('warn', 'Falha notifyAppReady (pode ser versão nativa).');
+        // Ignora erro se for versão nativa antiga
       }
 
-      // 2. Obter Versão Remota (Se falhar, sem internet -> aborta silenciosamente)
+      // --- FASE 3: BUSCAR NOVA VERSÃO ---
       let remoteData;
       try {
-        addLog('info', 'Verificando versão remota...');
         const response = await fetch(`${GITHUB_VERSION_URL}?t=${Date.now()}`);
-        if (!response.ok) throw new Error('Offline ou erro HTTP');
+        if (!response.ok) throw new Error('Erro HTTP');
         remoteData = await response.json();
       } catch (e) {
-        addLog('warn', 'Sem internet ou erro ao buscar versão. Abortando.');
+        addLog('warn', 'Offline/Erro busca. Abortando.');
         setStatus('idle');
         return;
       }
 
-      // 3. Obter Versão Atual do App
-      let currentBundle = "";
-      try {
-        const current = await CapacitorUpdater.current();
-        currentBundle = current.bundle || ""; // Garante string vazia se undefined
-      } catch (e) {
-        addLog('info', 'Versão nativa detectada (sem bundle ID).');
-        currentBundle = "";
-      }
+      const remoteVersion = remoteData.version;
+      const blockedVersion = localStorage.getItem('ota_failed_version');
 
-      addLog('info', `Atual: "${currentBundle}" | Remota: "${remoteData.version}"`);
-
-      // 4. Lógica de Comparação Estrita
-      if (currentBundle === remoteData.version) {
-        // Versões iguais: Não fazer nada.
-        addLog('info', 'Versões idênticas. Tudo atualizado.');
-        setStatus('idle');
-        return;
-      }
-
-      // Versões diferentes: Baixar e Instalar
-      addLog('info', `Atualizando de "${currentBundle}" para "${remoteData.version}"`);
-      setVersionInfo({ version: remoteData.version, note: remoteData.note });
+      // --- FASE 4: VERIFICAÇÕES DE SEGURANÇA ---
       
-      await downloadAndSetUpdate(remoteData.url, remoteData.version);
+      // 1. Verifica se a versão está bloqueada
+      if (blockedVersion === remoteVersion) {
+        addLog('warn', `Versão ${remoteVersion} está na lista negra (Falha anterior). Mantendo versão atual.`);
+        setStatus('idle'); // Fica quieto
+        return;
+      }
+
+      // 2. Verifica se já temos essa versão
+      if (currentBundle === remoteVersion) {
+        addLog('info', 'Versão já atualizada.');
+        setStatus('idle');
+        return;
+      }
+
+      // --- FASE 5: EXECUTAR ATUALIZAÇÃO ---
+      addLog('info', `Iniciando atualização: ${currentBundle} -> ${remoteVersion}`);
+      setVersionInfo({ version: remoteVersion, note: remoteData.note });
+      
+      // MARCA A TENTATIVA (A "Bandeira" que detecta o loop)
+      localStorage.setItem('ota_attempt_version', remoteVersion);
+      
+      await downloadAndSetUpdate(remoteData.url, remoteVersion);
     };
 
-    executeOtaLogic();
-  }, []); // Array vazio garante execução única no boot
+    executeSafeOtaLogic();
+  }, []);
 
   const downloadAndSetUpdate = async (url: string, version: string) => {
     setStatus('downloading');
     
-    // Listener de progresso
     const listener = await CapacitorUpdater.addListener('download', (info: any) => {
       setProgress(info.percent);
     });
 
     try {
-      addLog('info', `Iniciando download: ${version}`);
-      
       const versionObj = await CapacitorUpdater.download({
         url: url,
-        version: version, // Importante: define o ID do bundle
+        version: version,
       });
       
-      addLog('info', 'Download concluído. Configurando boot...');
-      
+      addLog('info', 'Download OK. Configurando boot...');
       await CapacitorUpdater.set(versionObj);
       
-      addLog('info', 'Boot configurado. App pronto para atualizar.');
+      addLog('info', 'Boot configurado. Aguardando usuário.');
       setStatus('ready');
-      
-      // Remove listener após sucesso
       listener.remove();
 
     } catch (e) {
-      addLog('error', `Erro crítico no download/set: ${JSON.stringify(e)}`);
+      addLog('error', `Erro crítico Download/Set: ${JSON.stringify(e)}`);
       setStatus('error');
+      // Se falhou o download, limpa a tentativa pois não vai reiniciar
+      localStorage.removeItem('ota_attempt_version');
       listener.remove();
-      // Reseta para idle após 5s
       setTimeout(() => setStatus('idle'), 5000);
     }
   };
 
   const handleReload = async () => {
-    // Recarrega para aplicar a nova versão
     window.location.reload(); 
   };
 
   const handleDebugClick = () => {
-    const newCount = debugClicks + 1;
-    setDebugClicks(newCount);
-    if (newCount >= 5) {
+    setDebugClicks(p => p + 1);
+    if (debugClicks + 1 >= 5) {
       setShowDebug(true);
       setDebugClicks(0);
     }
@@ -160,21 +182,24 @@ export const OtaUpdater: React.FC = () => {
 
   const clearLogsAndReset = () => {
     localStorage.removeItem('app_debug_logs');
+    // Opcional: Limpar trava manualmente via debug
+    localStorage.removeItem('ota_failed_version');
     setLogs([]);
     setShowDebug(false);
+    alert('Logs e travas limpos.');
   };
 
   // --- UI RENDER ---
 
   if (showDebug) {
     return (
-      <div className="fixed inset-0 z-[100] bg-black/90 text-green-400 p-4 font-mono text-xs overflow-hidden flex flex-col">
+      <div className="fixed inset-0 z-[100] bg-black/95 text-green-400 p-4 font-mono text-xs overflow-hidden flex flex-col animate-in fade-in">
         <div className="flex justify-between items-center mb-4 border-b border-green-800 pb-2">
-          <h3 className="font-bold flex items-center gap-2"><Terminal size={16}/> DEBUG CONSOLE</h3>
+          <h3 className="font-bold flex items-center gap-2"><Terminal size={16}/> OTA DEBUGGER</h3>
           <button onClick={() => setShowDebug(false)}><X size={20} /></button>
         </div>
-        <div className="flex-1 overflow-y-auto space-y-1 mb-4">
-          {logs.length === 0 && <span className="opacity-50">Nenhum log registrado.</span>}
+        <div className="flex-1 overflow-y-auto space-y-1 mb-4 select-text">
+          {logs.length === 0 && <span className="opacity-50">Sem logs.</span>}
           {logs.map((l, i) => (
             <div key={i} className={`border-b border-white/10 pb-1 ${l.type === 'error' ? 'text-red-400' : l.type === 'warn' ? 'text-yellow-400' : 'text-green-400'}`}>
               <span className="opacity-50 mr-2">[{l.time}]</span>
@@ -186,27 +211,28 @@ export const OtaUpdater: React.FC = () => {
         <div className="flex gap-2">
           <button 
             onClick={clearLogsAndReset}
-            className="flex-1 bg-red-900/50 border border-red-500 text-red-200 py-3 rounded-lg font-bold flex items-center justify-center gap-2"
+            className="flex-1 bg-red-900/40 border border-red-500/50 text-red-200 py-3 rounded-lg font-bold flex items-center justify-center gap-2"
           >
-            <Trash2 size={16} /> LIMPAR LOGS
+            <Trash2 size={16} /> RESETAR TRAVAS
           </button>
         </div>
       </div>
     );
   }
 
-  if (status === 'idle' || !Capacitor.isNativePlatform()) return null;
+  // Se não for nativo ou estiver idle (incluindo bloqueado/quieto), não renderiza nada
+  if (!Capacitor.isNativePlatform() || status === 'idle') return null;
 
   if (status === 'error') {
     return (
-      <div className="fixed bottom-24 left-0 right-0 z-50 flex justify-center animate-in slide-in-from-bottom duration-300">
+      <div className="fixed bottom-24 left-0 right-0 z-50 flex justify-center animate-in slide-in-from-bottom duration-300 pointer-events-none">
         <div 
           onClick={handleDebugClick}
-          className="bg-white/90 backdrop-blur-md shadow-lg border border-red-100 rounded-full py-2 px-4 flex items-center gap-2 cursor-pointer active:scale-95 transition-transform"
+          className="pointer-events-auto bg-white/90 backdrop-blur-md shadow-lg border border-red-100 rounded-full py-2 px-4 flex items-center gap-2 cursor-pointer"
         >
            <XCircle size={16} className="text-red-400" />
            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
-             Falha na atualização
+             Falha na conexão
            </span>
         </div>
       </div>
@@ -226,17 +252,17 @@ export const OtaUpdater: React.FC = () => {
           {status === 'ready' && <CheckCircle size={20} />}
         </div>
 
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0" onClick={handleDebugClick}>
           {status === 'checking' && (
             <div className="flex flex-col">
-              <P className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Buscando atualizações...</P>
+              <P className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Buscando novidades...</P>
             </div>
           )}
           
           {status === 'downloading' && (
             <div className="w-full">
               <div className="flex justify-between items-end mb-1.5">
-                <P className="text-xs font-bold text-gray-700">Baixando novidades</P>
+                <P className="text-xs font-bold text-gray-700">Baixando atualização</P>
                 <span className="text-[9px] font-bold text-gray-400">{Math.round(progress)}%</span>
               </div>
               <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
@@ -252,7 +278,7 @@ export const OtaUpdater: React.FC = () => {
             <div className="flex flex-col">
               <P className="text-sm font-bold text-gray-800">Tudo pronto!</P>
               <P className="text-[10px] text-gray-500 leading-tight mt-0.5 truncate">
-                {versionInfo?.note || "Nova versão disponível"}
+                {versionInfo?.note || "Toque para atualizar"}
               </P>
             </div>
           )}

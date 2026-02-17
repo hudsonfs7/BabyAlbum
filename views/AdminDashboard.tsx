@@ -45,7 +45,7 @@ export const AdminDashboard: React.FC<{ onLogout: () => void }> = ({ onLogout })
         try {
             const current = await CapacitorUpdater.current();
             setVersionInfo({
-                current: current.bundle,
+                current: current.id,
                 native: (await CapacitorUpdater.getLatest()).url || 'N/A'
             });
         } catch (e) {
