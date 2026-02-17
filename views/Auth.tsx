@@ -25,6 +25,9 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
   const { colors, setGender } = useTheme();
   const [step, setStep] = useState(0); // 0: Landing, 1: Login, 2+: Register
   const [loading, setLoading] = useState(false);
+  
+  // State para controlar visibilidade do Header baseado no foco
+  const [isFocused, setIsFocused] = useState(false);
 
   // Form State
   const [role, setRole] = useState<ParentRole | null>(null);
@@ -41,14 +44,25 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
   const parentFileRef = useRef<HTMLInputElement>(null);
   const babyFileRef = useRef<HTMLInputElement>(null);
 
-  // Helper para corrigir sobreposição do teclado
+  // Helper para corrigir sobreposição do teclado e esconder o header
   const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    setIsFocused(true);
+    
     const target = e.target;
-    // Aguarda o teclado subir (aprox 300ms) e força o scroll para o centro
-    // O padding-bottom extra na div principal permite que isso aconteça
     setTimeout(() => {
       target.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 300);
+  };
+
+  // Restaura o header quando o foco sai (se não for para outro input)
+  const handleInputBlur = () => {
+    setTimeout(() => {
+        // Só restaura se o novo elemento focado NÃO for um input
+        // Isso evita que o header fique "piscando" ao navegar entre campos (ex: Tab ou Next)
+        if (document.activeElement?.tagName !== "INPUT") {
+            setIsFocused(false);
+        }
+    }, 150);
   };
 
   const handleFileUpload = async (file: File, type: 'parent' | 'baby') => {
@@ -144,24 +158,21 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
   const prevStep = () => setStep(s => s === 1 ? 0 : s - 1);
 
   return (
-    // ESTRUTURA PARA EVITAR TECLADO COBRINDO INPUTS
-    // 1. h-[100dvh]: Altura dinâmica que se ajusta ao viewport real (ignora barras do navegador)
-    // 2. fixed inset-0: Garante que o app ocupe a tela toda sem rolar o body
     <div className="fixed inset-0 h-[100dvh] w-full bg-white overflow-hidden flex flex-col">
       
-      {/* Background Fixo (Não rola) */}
+      {/* Background Fixo */}
       <div className="absolute inset-0 w-full h-full opacity-10 pointer-events-none z-0">
         <Cloud size={100} className="absolute top-20 -left-10 animate-pulse" />
         <Stars size={80} className="absolute bottom-40 -right-10 animate-bounce" />
       </div>
 
-      {/* Container de Scroll */}
-      {/* pb-[50vh]: O "Colchão". Adiciona espaço vazio gigante no final para permitir scroll extra */}
       <div className="flex-1 overflow-y-auto w-full px-6 pb-[50vh] scroll-smooth z-10">
         <div className="max-w-md mx-auto min-h-full flex flex-col pt-6">
 
-            {/* HEADER */}
-            <header className="py-8 text-center shrink-0">
+            {/* HEADER COLAPSÁVEL */}
+            <header className={`text-center shrink-0 transition-all duration-500 ease-in-out overflow-hidden ${
+                isFocused ? 'max-h-0 opacity-0 py-0 my-0' : 'max-h-[500px] opacity-100 py-8 mb-6'
+            }`}>
                 <div className="inline-flex relative mb-6">
                 <div className={`w-24 h-24 rounded-[2.5rem] bg-white flex items-center justify-center shadow-2xl ring-8 ring-white overflow-hidden relative rotate-3`}>
                     {babyAvatar ? (
@@ -216,6 +227,7 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
                         value={email}
                         onChange={e => setEmail(e.target.value)}
                         onFocus={handleInputFocus}
+                        onBlur={handleInputBlur}
                         className={VISUAL_STANDARDS.input}
                         />
                     </div>
@@ -226,6 +238,7 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
                         value={password}
                         onChange={e => setPassword(e.target.value)}
                         onFocus={handleInputFocus}
+                        onBlur={handleInputBlur}
                         className={VISUAL_STANDARDS.input}
                         />
                     </div>
@@ -311,6 +324,7 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
                             value={parentName}
                             onChange={e => setParentName(e.target.value)}
                             onFocus={handleInputFocus}
+                            onBlur={handleInputBlur}
                             className={VISUAL_STANDARDS.input}
                         />
                         <input 
@@ -319,6 +333,7 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
                             value={email}
                             onChange={e => setEmail(e.target.value)}
                             onFocus={handleInputFocus}
+                            onBlur={handleInputBlur}
                             className={VISUAL_STANDARDS.input}
                         />
                         <input 
@@ -327,6 +342,7 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
                             value={password}
                             onChange={e => setPassword(e.target.value)}
                             onFocus={handleInputFocus}
+                            onBlur={handleInputBlur}
                             className={VISUAL_STANDARDS.input}
                         />
                         <Button onClick={nextStep} disabled={!parentName || !email || !password} className="w-full mt-4">
@@ -349,6 +365,7 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
                             value={babyName}
                             onChange={e => setBabyName(e.target.value)}
                             onFocus={handleInputFocus}
+                            onBlur={handleInputBlur}
                             className={VISUAL_STANDARDS.input}
                         />
                         <div className="flex flex-col gap-2">
@@ -358,6 +375,7 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
                                 value={babyBirthDate}
                                 onChange={e => setBabyBirthDate(e.target.value)}
                                 onFocus={handleInputFocus}
+                                onBlur={handleInputBlur}
                                 className={VISUAL_STANDARDS.input}
                             />
                         </div>
@@ -425,7 +443,6 @@ export const Auth: React.FC<{ onAuthSuccess: () => void }> = ({ onAuthSuccess })
                 </div>
             )}
             
-            {/* Espaço extra para garantir que o último elemento não fique colado no fim do padding */}
             <div className="h-20 w-full shrink-0"></div>
         </div>
       </div>
