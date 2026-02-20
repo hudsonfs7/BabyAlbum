@@ -2,7 +2,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { PostCard } from '../components/Post';
 import { H1, P } from '../components/Typography';
-<<<<<<< HEAD
 import { Post, User, Baby } from '../types';
 import { useTheme } from '../themeContext';
 import { Sparkles, Baby as BabyIcon, Cloud, Loader2, RefreshCw, WifiOff } from 'lucide-react';
@@ -12,17 +11,6 @@ import { calculateBabyAge } from '../utils/dateUtils';
 
 export const Feed: React.FC = () => {
   const { colors, setGender } = useTheme();
-=======
-import { Post, User } from '../types';
-import { useTheme } from '../themeContext';
-import { Sparkles, Baby, Cloud, Loader2, RefreshCw, WifiOff } from 'lucide-react';
-import { db } from '../firebase';
-import { collection, query, onSnapshot, where } from 'firebase/firestore';
-import { calculateBabyAge } from '../utils/dateUtils';
-
-export const Feed: React.FC = () => {
-  const { colors } = useTheme();
->>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -38,7 +26,6 @@ export const Feed: React.FC = () => {
     return saved ? JSON.parse(saved) : null;
   });
 
-<<<<<<< HEAD
   const [baby, setBaby] = useState<Baby | null>(() => {
     const saved = localStorage.getItem('baby_data');
     return saved ? JSON.parse(saved) : null;
@@ -51,8 +38,6 @@ export const Feed: React.FC = () => {
     }
   }, [baby, setGender]);
 
-=======
->>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
   // Monitor de Conexão
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -68,16 +53,11 @@ export const Feed: React.FC = () => {
   }, []);
 
   useEffect(() => {
-<<<<<<< HEAD
     if (!user || !user.currentBabyId) {
-=======
-    if (!user) {
->>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
       setLoading(false);
       return;
     }
 
-<<<<<<< HEAD
     // Carrega dados atualizados do bebê se não tiver localmente ou para garantir sincronia
     const fetchBaby = async () => {
         try {
@@ -96,11 +76,6 @@ export const Feed: React.FC = () => {
     const q = query(
       collection(db, "posts"), 
       where("babyId", "==", user.currentBabyId)
-=======
-    const q = query(
-      collection(db, "posts"), 
-      where("userId", "==", user.id)
->>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
     );
     
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -114,10 +89,6 @@ export const Feed: React.FC = () => {
     }, (error) => {
       console.error("Erro ao buscar posts:", error);
       setLoading(false);
-<<<<<<< HEAD
-=======
-      // Se der erro (provavelmente rede), e não tivermos posts, garantimos que o loading pare
->>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
       if (posts.length === 0) setLoading(false);
     });
 
@@ -138,10 +109,6 @@ export const Feed: React.FC = () => {
     const diff = currentY - touchStartRef.current;
     
     if (diff > 0) {
-<<<<<<< HEAD
-=======
-      // Resistência ao puxar (física amortecida)
->>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
       setPullY(Math.min(diff * 0.5, 120)); 
     }
   };
@@ -149,15 +116,9 @@ export const Feed: React.FC = () => {
   const handleTouchEnd = () => {
     if (pullY > 80) {
       setIsRefreshing(true);
-<<<<<<< HEAD
       setPullY(60); 
       setTimeout(() => {
          window.location.reload();
-=======
-      setPullY(60); // Mantém o indicador visível
-      setTimeout(() => {
-         window.location.reload(); // Recarrega o app real
->>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
       }, 1000);
     } else {
       setPullY(0);
@@ -189,17 +150,10 @@ export const Feed: React.FC = () => {
       >
         <div className="relative mb-6">
           <div className={`w-20 h-20 rounded-[1.8rem] ${colors.secondary} flex items-center justify-center shadow-lg ring-8 ring-white rotate-6 overflow-hidden`}>
-<<<<<<< HEAD
             {baby?.avatar ? (
               <img src={baby.avatar} className="w-full h-full object-cover" />
             ) : (
               <BabyIcon size={40} className={colors.accent} />
-=======
-            {user?.babyAvatar ? (
-              <img src={user.babyAvatar} className="w-full h-full object-cover" />
-            ) : (
-              <Baby size={40} className={colors.accent} />
->>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
             )}
           </div>
           <div className="absolute -top-4 -right-4 bg-yellow-300 p-2 rounded-full shadow-md animate-bounce">
@@ -219,15 +173,9 @@ export const Feed: React.FC = () => {
               <div className={`w-2 h-2 rounded-full ${colors.primary} animate-pulse`}></div>
            </div>
            
-<<<<<<< HEAD
            {baby?.birthDate && (
              <div className={`text-[10px] font-bold uppercase tracking-widest opacity-30`}>
                {baby.name} • {calculateBabyAge(baby.birthDate)}
-=======
-           {user?.babyBirthDate && (
-             <div className={`text-[10px] font-bold uppercase tracking-widest opacity-30`}>
-               {user.babyName} • {calculateBabyAge(user.babyBirthDate)}
->>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
              </div>
            )}
         </div>
@@ -239,10 +187,6 @@ export const Feed: React.FC = () => {
           <P className="text-xs font-bold uppercase tracking-widest">Abrindo o álbum...</P>
         </div>
       ) : posts.length === 0 ? (
-<<<<<<< HEAD
-=======
-        // Lógica de Estado Vazio ou Offline
->>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
         !isOnline ? (
           <div className="text-center py-20 mx-4 animate-in fade-in duration-500">
              <div className="bg-red-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-sm">
@@ -267,10 +211,6 @@ export const Feed: React.FC = () => {
         )
       ) : (
         <>
-<<<<<<< HEAD
-=======
-          {/* Banner Offline Discreto se tiver posts mas caiu a net */}
->>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
           {!isOnline && (
             <div className="mb-4 mx-4 bg-red-50 border border-red-100 p-2 rounded-xl flex items-center justify-center gap-2">
               <WifiOff size={12} className="text-red-400" />

@@ -7,15 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-<<<<<<< HEAD
     "lint": "tsc --noEmit",
-=======
->>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
     "android:sync": "npm run build && npx cap sync android",
     "android:build": "npm run android:sync && npx cap build android"
   },
   "dependencies": {
-<<<<<<< HEAD
     "@capacitor/app": "^6.0.3",
     "@capacitor/core": "^6.0.0",
     "@capacitor/filesystem": "^6.0.0",
@@ -29,18 +25,6 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.1.3"
-=======
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-router-dom": "^7.1.3",
-    "lucide-react": "^0.471.0",
-    "firebase": "^11.3.1",
-    "@capacitor/core": "^6.0.0",
-    "@capacitor/share": "^6.0.0",
-    "@capacitor/filesystem": "^6.0.0",
-    "@capgo/capacitor-updater": "^6.0.0",
-    "html2canvas": "^1.4.1"
->>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
   },
   "devDependencies": {
     "@capacitor/android": "^6.0.0",
@@ -52,8 +36,4 @@
     "typescript": "^5.7.2",
     "vite": "^6.0.5"
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
