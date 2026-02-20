@@ -1,0 +1,24 @@
+
+# Dependencies
+node_modules
+*/node_modules
+package-lock.json
+yarn.lock
+
+# Production
+dist
+build
+
+# Env
+.env
+.env.local
+.DS_Store
+
+# IDE
+.vscode
+.idea
+
+# Capacitor
+/android/app/build
+/android/.gradle
+/ios/App/App/public

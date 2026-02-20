@@ -1,0 +1,52 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build Web
+        run: npm run build
+
+      - name: Capacitor Sync
+        run: npx cap sync android
+
+      - name: Patch Android SDK Version
+        run: |
+          # Patch variables.gradle to use SDK 35 (Required by androidx.work:work-runtime:2.10.5)
+          if [ -f "android/variables.gradle" ]; then
+            sed -i 's/compileSdkVersion = 34/compileSdkVersion = 35/g' android/variables.gradle
+            sed -i 's/targetSdkVersion = 34/targetSdkVersion = 35/g' android/variables.gradle
+            sed -i 's/minSdkVersion = 22/minSdkVersion = 24/g' android/variables.gradle
+            echo "Updated SDK version to 35 and minSdkVersion to 24 in variables.gradle"
+          else
+            echo "Warning: android/variables.gradle not found"
+          fi
+
+      - name: Build Android APK
+        run: |
+          cd android
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
