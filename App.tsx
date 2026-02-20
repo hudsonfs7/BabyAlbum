@@ -1,11 +1,17 @@
 
+<<<<<<< HEAD
 import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom';
+=======
+import React, { useState, useEffect } from 'react';
+import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
 import { ThemeProvider, useTheme } from './themeContext';
 import { Feed } from './views/Feed';
 import { CreatePost } from './views/CreatePost';
 import { Profile } from './views/Profile';
 import { Auth } from './views/Auth';
+<<<<<<< HEAD
 import { Notifications } from './views/Notifications';
 import { AdminDashboard } from './views/AdminDashboard';
 import { Home, Plus, User as UserIcon, Bell } from 'lucide-react';
@@ -16,10 +22,18 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from './firebase';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Toast } from '@capacitor/toast';
+=======
+import { AdminDashboard } from './views/AdminDashboard';
+import { Home, Plus, User as UserIcon } from 'lucide-react';
+import { VISUAL_STANDARDS } from './styles';
+import { User } from './types';
+import { OtaUpdater } from './components/OtaUpdater';
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
 
 const Navigation: React.FC = () => {
   const { colors } = useTheme();
   const location = useLocation();
+<<<<<<< HEAD
   const [unreadCount, setUnreadCount] = useState(0);
   
   // Monitorar notificações não lidas
@@ -40,11 +54,16 @@ const Navigation: React.FC = () => {
       return () => unsubscribe();
     }
   }, []);
+=======
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
   
   const navItems = [
     { path: '/', icon: Home, label: 'Início' },
     { path: '/create', icon: Plus, label: 'Novo' },
+<<<<<<< HEAD
     { path: '/notifications', icon: Bell, label: 'Notificações', badge: unreadCount },
+=======
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
     { path: '/profile', icon: UserIcon, label: 'Álbum' },
   ];
 
@@ -71,12 +90,18 @@ const Navigation: React.FC = () => {
             <Link 
               key={item.path} 
               to={item.path} 
+<<<<<<< HEAD
               className={`${VISUAL_STANDARDS.navItem} p-2 rounded-xl relative ${isActive ? `${colors.secondary} ${colors.accent} scale-105` : 'text-gray-300'}`}
             >
               <Icon size={16} strokeWidth={isActive ? 3 : 2} />
               {item.badge !== undefined && item.badge > 0 && (
                 <div className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-400 rounded-full border-2 border-white"></div>
               )}
+=======
+              className={`${VISUAL_STANDARDS.navItem} p-2 rounded-xl ${isActive ? `${colors.secondary} ${colors.accent} scale-105` : 'text-gray-300'}`}
+            >
+              <Icon size={16} strokeWidth={isActive ? 3 : 2} />
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
             </Link>
           );
         })}
@@ -89,6 +114,7 @@ const AppContent: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const { setGender } = useTheme();
+<<<<<<< HEAD
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -140,6 +166,10 @@ const AppContent: React.FC = () => {
     };
   }, []); // Array vazio: executa apenas na montagem
 
+=======
+
+  // IMPLEMENTAÇÃO DE MODO IMERSIVO (Solicita Fullscreen na primeira interação)
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
   useEffect(() => {
     const enterFullScreen = async () => {
       try {
@@ -151,11 +181,25 @@ const AppContent: React.FC = () => {
           }
         }
       } catch (e) {
+<<<<<<< HEAD
         console.log("Aguardando interação para fullscreen");
       }
     };
     document.addEventListener('click', enterFullScreen, { once: true });
     enterFullScreen();
+=======
+        // Interação do usuário necessária ou não suportado
+        console.log("Aguardando interação para fullscreen");
+      }
+    };
+
+    // Tenta entrar em fullscreen no clique (padrão Android Chrome/WebView)
+    document.addEventListener('click', enterFullScreen, { once: true });
+    
+    // Tenta entrar imediatamente (funciona em alguns WebViews configurados)
+    enterFullScreen();
+
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
     return () => {
       document.removeEventListener('click', enterFullScreen);
     };
@@ -166,6 +210,10 @@ const AppContent: React.FC = () => {
     if (saved) {
       const parsedUser = JSON.parse(saved);
       setUser(parsedUser);
+<<<<<<< HEAD
+=======
+      // CORREÇÃO: Aplica o tema imediatamente ao carregar o usuário
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
       if (parsedUser.babyGender) {
         setGender(parsedUser.babyGender);
       }
@@ -193,9 +241,17 @@ const AppContent: React.FC = () => {
     }} />;
   }
 
+<<<<<<< HEAD
   if (user.role === 'ADMIN') {
     return <AdminDashboard onLogout={handleLogout} />;
   }
+=======
+  // --- GOD MODE ROUTING ---
+  if (user.role === 'ADMIN') {
+    return <AdminDashboard onLogout={handleLogout} />;
+  }
+  // ------------------------
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
 
   return (
     <div className={VISUAL_STANDARDS.container}>
@@ -204,7 +260,10 @@ const AppContent: React.FC = () => {
         <Route path="/" element={<Feed />} />
         <Route path="/create" element={<CreatePost />} />
         <Route path="/profile" element={<Profile />} />
+<<<<<<< HEAD
         <Route path="/notifications" element={<Notifications />} />
+=======
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
       <Navigation />

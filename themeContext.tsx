@@ -1,9 +1,15 @@
 
+<<<<<<< HEAD
 import React, { createContext, useContext, useState, ReactNode, useMemo, useEffect } from 'react';
 import { Gender, ThemeContextType } from './types';
 import { VISUAL_STANDARDS } from './styles';
 import { NavigationBar } from '@capgo/capacitor-navigation-bar';
 import { Capacitor } from '@capacitor/core';
+=======
+import React, { createContext, useContext, useState, ReactNode, useMemo } from 'react';
+import { Gender, ThemeContextType } from './types';
+import { VISUAL_STANDARDS } from './styles';
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
@@ -19,6 +25,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     };
   }, [gender]);
 
+<<<<<<< HEAD
   // Atualiza a cor da barra de navegação quando o tema muda
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
@@ -43,6 +50,8 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, [gender]);
 
+=======
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
   return (
     <ThemeContext.Provider value={theme}>
       <div 

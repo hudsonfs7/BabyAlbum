@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 
+=======
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, MapPin, Stars, Loader2, Sparkles, BookOpen, Move, ZoomIn } from 'lucide-react';
 import { useTheme } from '../themeContext';
@@ -7,10 +10,19 @@ import { H2, P } from '../components/Typography';
 import { VISUAL_STANDARDS } from '../styles';
 import { uploadToCloudinary } from '../cloudinaryService';
 import { db } from '../firebase';
+<<<<<<< HEAD
 import { collection, addDoc, getDoc, doc, writeBatch } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { User, PersonaType, Baby } from '../types';
 
+=======
+import { collection, addDoc } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
+import { User, PersonaType } from '../types';
+import html2canvas from 'html2canvas';
+
+// Mapeamento local para garantir o emoji correto no post
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
 const PERSONA_EMOJIS: Record<PersonaType, string> = {
   'Coruja': '🦉',
   'Girafa': '🦒',
@@ -45,15 +57,19 @@ export const CreatePost: React.FC = () => {
     if (saved) setUser(JSON.parse(saved));
   }, []);
 
+<<<<<<< HEAD
   // State para Aspect Ratio dinâmico
   const [aspectRatio, setAspectRatio] = useState(4/5);
 
+=======
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setPhotoFile(file);
       const reader = new FileReader();
       reader.onload = (e) => {
+<<<<<<< HEAD
         const result = e.target?.result as string;
         setPhotoPreview(result);
         
@@ -73,11 +89,20 @@ export const CreatePost: React.FC = () => {
           setPan({ x: 0, y: 0 }); 
         };
         img.src = result;
+=======
+        setPhotoPreview(e.target?.result as string);
+        setZoom(1); // Reset zoom
+        setPan({ x: 0, y: 0 }); // Reset pan
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
       };
       reader.readAsDataURL(file);
     }
   };
 
+<<<<<<< HEAD
+=======
+  // Lógica de Arrasto (Pan)
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
   const handlePointerDown = (e: React.PointerEvent) => {
     setIsDragging(true);
     dragStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
@@ -98,6 +123,7 @@ export const CreatePost: React.FC = () => {
   };
 
   const handlePost = async () => {
+<<<<<<< HEAD
     if ((!photoFile && !photoPreview) || !user || !user.currentBabyId) return;
 
     try {
@@ -121,6 +147,43 @@ export const CreatePost: React.FC = () => {
           y: pan.y,
           aspectRatio: aspectRatio
         },
+=======
+    if ((!photoFile && !photoPreview) || !user) return;
+
+    try {
+      setIsUploading(true);
+
+      // PASSO 1: Gerar a imagem recortada/zoomada
+      let finalFile = photoFile;
+
+      if (previewContainerRef.current && photoPreview) {
+        // Usa html2canvas para capturar o estado visual atual (zoom + pan)
+        const canvas = await html2canvas(previewContainerRef.current, {
+          useCORS: true,
+          scale: 2, // Melhor qualidade
+          backgroundColor: '#ffffff'
+        });
+
+        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+        if (blob) {
+          finalFile = new File([blob], "edited_memory.jpg", { type: "image/jpeg" });
+        }
+      }
+
+      if (!finalFile) throw new Error("Falha ao processar imagem");
+
+      // PASSO 2: Upload
+      const imageUrl = await uploadToCloudinary(finalFile);
+
+      const emoji = PERSONA_EMOJIS[user.persona] || '✨';
+      const formattedName = `${emoji} ${user.role} ${user.persona} ${user.name}`;
+
+      await addDoc(collection(db, "posts"), {
+        userId: user.id,
+        userName: formattedName,
+        userAvatar: user.avatar,
+        photoUrl: imageUrl,
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
         caption: caption,
         story: story,
         location: location,
@@ -130,6 +193,7 @@ export const CreatePost: React.FC = () => {
         createdAt: Date.now()
       });
 
+<<<<<<< HEAD
       // --- LOGICA DE NOTIFICAÇÃO ---
       // 1. Busca dados do Bebê para saber quem criou
       const babyDoc = await getDoc(doc(db, "babies", user.currentBabyId));
@@ -172,6 +236,8 @@ export const CreatePost: React.FC = () => {
           }
       }
 
+=======
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
       navigate('/');
     } catch (error) {
       console.error(error);
@@ -193,15 +259,23 @@ export const CreatePost: React.FC = () => {
       <div className={`${VISUAL_STANDARDS.card} bg-white/80 p-6 mb-10`}>
         {photoPreview ? (
           <div className="mb-6">
+<<<<<<< HEAD
             <div 
               ref={previewContainerRef}
               className="relative rounded-[2.5rem] overflow-hidden shadow-xl border-8 border-white bg-white touch-none cursor-move flex items-center justify-center transition-all duration-300"
               style={{ aspectRatio: aspectRatio }}
+=======
+            {/* CONTAINER DE VISUALIZAÇÃO/EDIÇÃO */}
+            <div 
+              ref={previewContainerRef}
+              className="relative aspect-[4/5] rounded-[2.5rem] overflow-hidden shadow-xl border-8 border-white bg-white touch-none cursor-move"
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerLeave={handlePointerUp}
             >
+<<<<<<< HEAD
               <img 
                 src={photoPreview}
                 alt="Preview"
@@ -211,6 +285,15 @@ export const CreatePost: React.FC = () => {
                   width: 'auto',
                   minWidth: '100%',
                   objectFit: 'contain',
+=======
+              <div 
+                className="w-full h-full pointer-events-none select-none"
+                style={{
+                  backgroundImage: `url(${photoPreview})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
                   transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                   transformOrigin: 'center'
                 }}
@@ -228,6 +311,10 @@ export const CreatePost: React.FC = () => {
               )}
             </div>
 
+<<<<<<< HEAD
+=======
+            {/* CONTROLES DE EDIÇÃO */}
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
             {!isUploading && (
               <div className="mt-4 px-2 space-y-3">
                 <div className="flex items-center gap-4 bg-white/50 p-3 rounded-2xl border border-white/50">
@@ -269,6 +356,10 @@ export const CreatePost: React.FC = () => {
         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoSelect} disabled={isUploading} />
 
         <div className="space-y-6 mt-6">
+<<<<<<< HEAD
+=======
+          {/* Legenda Curta */}
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
           <input 
             placeholder="Legenda curta..."
             value={caption}
@@ -276,6 +367,11 @@ export const CreatePost: React.FC = () => {
             disabled={isUploading}
             className={`w-full px-6 py-4 rounded-[1.5rem] border-2 ${colors.border} focus:outline-none focus:ring-4 bg-white/50 shadow-inner text-sm font-medium`}
           />
+<<<<<<< HEAD
+=======
+
+          {/* História Completa */}
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
           <div className="relative">
              <BookOpen size={20} className={`absolute top-4 left-4 ${colors.accent} opacity-50`} />
              <textarea 
@@ -286,6 +382,10 @@ export const CreatePost: React.FC = () => {
               className={`${VISUAL_STANDARDS.input} ${colors.border} ${colors.focusRing} resize-none h-40 pt-10 pl-12`}
              />
           </div>
+<<<<<<< HEAD
+=======
+
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
           <div className={`flex items-center gap-4 bg-white/60 p-5 rounded-[2rem] border-4 border-white shadow-sm`}>
             <MapPin size={24} strokeWidth={3} className={colors.accent} />
             <input 
@@ -306,4 +406,8 @@ export const CreatePost: React.FC = () => {
       </Button>
     </div>
   );
+<<<<<<< HEAD
 };
+=======
+};
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f

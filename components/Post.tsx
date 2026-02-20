@@ -311,6 +311,7 @@ export const PostCard: React.FC<PostProps> = ({ post, currentUser, isFriend }) =
           onClick={() => !isEditing && !showDeleteModal && setIsExpanded(true)}
         >
           <div className="absolute inset-0 bg-white rounded-[2.5rem] -rotate-1 shadow-inner z-0"></div>
+<<<<<<< HEAD
           <div className="relative w-full rounded-[2.5rem] overflow-hidden border-8 border-white shadow-md z-10 bg-gray-50 flex items-center justify-center transition-all duration-300"
                style={{ aspectRatio: post.cropConfig?.aspectRatio || 4/5 }}>
             <img 
@@ -325,6 +326,13 @@ export const PostCard: React.FC<PostProps> = ({ post, currentUser, isFriend }) =
                 transformOrigin: 'center'
               }}
               crossOrigin="anonymous"
+=======
+          <div className="relative aspect-[4/5] w-full rounded-[2.5rem] overflow-hidden border-8 border-white shadow-md z-10">
+            <img 
+              src={post.photoUrl} 
+              alt="Baby Memory" 
+              className="w-full h-full object-cover transition-transform duration-[2000ms] group-hover:scale-110" 
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
             />
             {!isEditing && (
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -523,6 +531,7 @@ export const PostCard: React.FC<PostProps> = ({ post, currentUser, isFriend }) =
               </div>
 
               {/* Photo Frame */}
+<<<<<<< HEAD
               <div className="bg-white p-0.5 rounded-[1rem] shadow-[0_8px_30px_rgba(0,0,0,0.08)] border-2 border-white transform rotate-0 mb-4 relative z-10 overflow-hidden flex items-center justify-center"
                    style={{ aspectRatio: post.cropConfig?.aspectRatio || 4/5 }}>
                  <img 
@@ -534,6 +543,14 @@ export const PostCard: React.FC<PostProps> = ({ post, currentUser, isFriend }) =
                      transformOrigin: 'center'
                    }}
                    crossOrigin="anonymous"
+=======
+              <div className="bg-white p-0.5 rounded-[1rem] shadow-[0_8px_30px_rgba(0,0,0,0.08)] border-2 border-white transform rotate-0 mb-4 relative z-10">
+                 <img 
+                   src={post.photoUrl} 
+                   alt="Memory" 
+                   className="w-full h-auto object-contain rounded-[0.8rem] shadow-inner max-h-[80vh]"
+                   crossOrigin="anonymous" 
+>>>>>>> bb2008dfefce5a66fca89ac3452f00371cdd832f
                  />
               </div>
 
