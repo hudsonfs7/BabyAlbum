@@ -49,7 +49,7 @@ const Navigation: React.FC = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 px-6 pointer-events-none" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
+    <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 px-6 pointer-events-none transition-all duration-300" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}>
       <div className={`bg-white/90 backdrop-blur-xl border-2 ${colors.border} rounded-[1.8rem] p-1.5 flex items-center justify-around shadow-[0_15px_30px_rgba(0,0,0,0.08)] pointer-events-auto`}>
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;

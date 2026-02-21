@@ -6,7 +6,7 @@ import { VISUAL_STANDARDS } from '../styles';
 import { H2, P } from '../components/Typography';
 import { Search, UserPlus, Users, Loader2, Check, X, Clock, ArrowRight, ArrowLeft, Heart, Shield, Star, Baby as BabyIcon, Trash2 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, where, getDocs, addDoc, doc, updateDoc, arrayUnion, deleteDoc, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, doc, updateDoc, arrayUnion, arrayRemove, deleteDoc, orderBy, limit, getDoc } from 'firebase/firestore';
 
 interface FamilyManagerProps {
   currentUser: User;
@@ -42,31 +42,62 @@ export const FamilyManager: React.FC<FamilyManagerProps> = ({ currentUser, curre
   }, []);
 
   const removeFriend = async (friendId: string) => {
-      if (!confirm("Tem certeza que deseja remover este amigo?")) return;
+      // DEBUG: Alert para confirmar clique
+      // if (!confirm("Tem certeza que deseja remover este amigo?")) return; 
+      
       try {
           setLoading(true);
+          
+          // 1. Remove da minha lista (Atomicamente)
           const myRef = doc(db, "users", currentUser.id);
-          await updateDoc(myRef, { friends: currentUser.friends.filter(id => id !== friendId) });
+          await updateDoc(myRef, { friends: arrayRemove(friendId) });
 
-          const otherRef = doc(db, "users", friendId);
-          // Tenta remover, mas se falhar (permissão), tudo bem, o importante é remover da minha lista
+          // 2. Tenta remover da lista do amigo (Best Effort)
           try {
-            const otherSnap = await getDocs(query(collection(db, "users"), where("__name__", "==", friendId)));
-            if (!otherSnap.empty) {
-                 const otherData = otherSnap.docs[0].data() as User;
-                 const newFriends = otherData.friends.filter(id => id !== currentUser.id);
-                 await updateDoc(otherRef, { friends: newFriends });
-            }
-          } catch (e) { console.log("Não foi possível remover do outro lado (permissão)", e); }
+              const otherRef = doc(db, "users", friendId);
+              await updateDoc(otherRef, { friends: arrayRemove(currentUser.id) });
+          } catch (e) {
+              console.warn("Não foi possível remover bidirecionalmente (permissão)", e);
+          }
 
-          // Atualiza estado local
-          const newUser = { ...currentUser, friends: currentUser.friends.filter(id => id !== friendId) };
+          // 3. Atualiza estado local imediatamente
+          const newFriendsList = currentUser.friends.filter(id => id !== friendId);
+          const newUser = { ...currentUser, friends: newFriendsList };
+          
           onUpdateUser(newUser);
           setFriends(prev => prev.filter(f => f.id !== friendId));
-          setSelectedFriend(null); // Fecha modal se aberto
-          alert("Amigo removido.");
+          
+          // Feedback visual mais claro
+          // alert("Amigo removido com sucesso.");
       } catch (e) {
-          alert("Erro ao remover.");
+          console.error(e);
+          alert("Erro ao remover amigo: " + e);
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  const visitFriendBaby = async (friend: User) => {
+      if (!friend.currentBabyId) {
+          alert("Este amigo não tem um álbum vinculado.");
+          return;
+      }
+      
+      try {
+          setLoading(true);
+          const babyRef = doc(db, "babies", friend.currentBabyId);
+          const babySnap = await getDoc(babyRef);
+          
+          if (babySnap.exists()) {
+              const babyData = { id: babySnap.id, ...babySnap.data() } as Baby;
+              localStorage.setItem('baby_data', JSON.stringify(babyData));
+              window.location.reload();
+          } else {
+              alert("Álbum não encontrado ou sem permissão.");
+          }
+      } catch (e) {
+          console.error(e);
+          alert("Erro ao acessar o álbum: " + e);
       } finally {
           setLoading(false);
       }
@@ -326,22 +357,37 @@ export const FamilyManager: React.FC<FamilyManagerProps> = ({ currentUser, curre
                                         </div>
                                         <div className="grid gap-3">
                                             {friends.filter(f => FAMILY_ROLES.includes(f.role)).map(f => (
-                                                <div key={f.id} onClick={() => setSelectedFriend(f)} className="bg-white p-3 rounded-2xl shadow-[0_4px_20px_-10px_rgba(0,0,0,0.1)] flex items-center gap-4 border border-pink-50 relative overflow-hidden group cursor-pointer active:scale-95 transition-transform">
-                                                    <div className="absolute right-0 top-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                                                <div key={f.id} className="bg-white p-3 rounded-2xl shadow-[0_4px_20px_-10px_rgba(0,0,0,0.1)] flex items-center gap-4 border border-pink-50 relative overflow-hidden group transition-transform active:scale-[0.98]">
+                                                    <div className="absolute right-0 top-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
                                                         <Star size={40} className="text-pink-300"/>
                                                     </div>
-                                                    <img src={f.avatar} className="w-12 h-12 rounded-[1rem] object-cover border-2 border-white shadow-sm bg-gray-100"/>
-                                                    <div className="flex-1">
-                                                        <div className="font-bold text-sm text-gray-800 flex items-center gap-2">
-                                                            {f.name}
-                                                            <span className="px-2 py-0.5 rounded-full bg-pink-100 text-pink-600 text-[9px] font-bold uppercase tracking-wide">
-                                                                {f.role}
-                                                            </span>
-                                                        </div>
-                                                        <div className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span> Conectado
+                                                    
+                                                    {/* ÁREA CLICÁVEL PARA VISITAR (Esquerda + Centro) */}
+                                                    <div className="flex-1 flex items-center gap-4 cursor-pointer" onClick={() => visitFriendBaby(f)}>
+                                                        <img src={f.avatar} className="w-12 h-12 rounded-[1rem] object-cover border-2 border-white shadow-sm bg-gray-100"/>
+                                                        <div>
+                                                            <div className="font-bold text-sm text-gray-800 flex items-center gap-2">
+                                                                {f.name}
+                                                                <span className="px-2 py-0.5 rounded-full bg-pink-100 text-pink-600 text-[9px] font-bold uppercase tracking-wide">
+                                                                    {f.role}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span> Ver Álbum
+                                                            </div>
                                                         </div>
                                                     </div>
+
+                                                    {/* BOTÃO DE REMOVER (Direita) */}
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation(); // Impede de visitar ao clicar na lixeira
+                                                            removeFriend(f.id);
+                                                        }}
+                                                        className="p-3 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors z-10"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
                                                 </div>
                                             ))}
                                         </div>
@@ -357,12 +403,27 @@ export const FamilyManager: React.FC<FamilyManagerProps> = ({ currentUser, curre
                                         </div>
                                         <div className="grid gap-2">
                                             {friends.filter(f => !FAMILY_ROLES.includes(f.role)).map(f => (
-                                                <div key={f.id} onClick={() => setSelectedFriend(f)} className="bg-white p-3 rounded-2xl border border-gray-100 flex items-center gap-3 opacity-90 cursor-pointer active:scale-95 transition-transform">
-                                                    <img src={f.avatar} className="w-10 h-10 rounded-full object-cover bg-gray-100 grayscale-[20%]"/>
-                                                    <div className="flex-1">
-                                                        <div className="font-bold text-sm text-gray-700">{f.name}</div>
-                                                        <div className="text-[10px] text-gray-400">{f.role} {f.persona}</div>
+                                                <div key={f.id} className="bg-white p-3 rounded-2xl border border-gray-100 flex items-center justify-between opacity-90 transition-transform active:scale-[0.98]">
+                                                    
+                                                    {/* ÁREA CLICÁVEL PARA VISITAR */}
+                                                    <div className="flex-1 flex items-center gap-3 cursor-pointer" onClick={() => visitFriendBaby(f)}>
+                                                        <img src={f.avatar} className="w-10 h-10 rounded-full object-cover bg-gray-100 grayscale-[20%]"/>
+                                                        <div>
+                                                            <div className="font-bold text-sm text-gray-700">{f.name}</div>
+                                                            <div className="text-[10px] text-gray-400">{f.role} {f.persona} • Ver Álbum</div>
+                                                        </div>
                                                     </div>
+
+                                                    {/* BOTÃO DE REMOVER */}
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            removeFriend(f.id);
+                                                        }}
+                                                        className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
                                                 </div>
                                             ))}
                                         </div>
@@ -373,48 +434,7 @@ export const FamilyManager: React.FC<FamilyManagerProps> = ({ currentUser, curre
                     </div>
                 )}
 
-                {/* --- MODAL DE PERFIL DO AMIGO --- */}
-                {selectedFriend && (
-                    <div className="absolute inset-0 z-50 bg-white/95 backdrop-blur-sm flex flex-col animate-in zoom-in duration-200">
-                        <div className="p-4 flex justify-end">
-                            <button onClick={() => setSelectedFriend(null)} className="p-2 bg-gray-100 rounded-full"><X size={20}/></button>
-                        </div>
-                        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center -mt-10">
-                            <div className="w-32 h-32 rounded-[2.5rem] p-1 bg-white shadow-2xl rotate-3 mb-6 relative">
-                                <img src={selectedFriend.avatar} className="w-full h-full rounded-[2.2rem] object-cover" />
-                                <div className="absolute -bottom-3 -right-3 bg-white p-2 rounded-full shadow-md text-2xl">
-                                    {FAMILY_ROLES.includes(selectedFriend.role) ? '❤️' : '🤝'}
-                                </div>
-                            </div>
-                            
-                            <H2 className="text-2xl mb-1 text-gray-800">{selectedFriend.name}</H2>
-                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full text-xs font-bold text-gray-500 uppercase tracking-wider mb-8">
-                                {selectedFriend.role} {selectedFriend.persona}
-                            </div>
 
-                            <div className="w-full space-y-3">
-                                {selectedFriend.currentBabyId && (
-                                    <button 
-                                        onClick={() => {
-                                            // Lógica para visitar (futuro: trocar contexto do app)
-                                            alert("Em breve: Visitar álbum de " + selectedFriend.name);
-                                        }}
-                                        className={`w-full p-4 rounded-2xl ${colors.primary} text-white font-bold shadow-lg shadow-blue-200 flex items-center justify-center gap-2`}
-                                    >
-                                        <BabyIcon size={20} /> Ver Álbum do Bebê
-                                    </button>
-                                )}
-                                
-                                <button 
-                                    onClick={() => removeFriend(selectedFriend.id)}
-                                    className="w-full p-4 rounded-2xl bg-red-50 text-red-500 font-bold border border-red-100 flex items-center justify-center gap-2 hover:bg-red-100 transition-colors"
-                                >
-                                    <Trash2 size={20} /> Remover Amigo
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 {/* --- ABA 2: BUSCA --- */}
                 {activeTab === 'search' && (
@@ -563,6 +583,8 @@ export const FamilyManager: React.FC<FamilyManagerProps> = ({ currentUser, curre
                 )}
             </div>
         </div>
+
+
     </div>
   );
 };
